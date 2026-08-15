@@ -1,0 +1,97 @@
+{{!--
+    Adversary BP Costs. One row per adversary type the system knows about, built-in and homebrew.
+
+    Rows with no cost sort to the top and are highlighted: they are the reason this window exists,
+    because the system has nowhere to store a price for a custom adversary type.
+--}}
+<div class="rdbd-type-costs">
+
+    <p class="rdbd-hint">{{localize "RDBD.TypeCosts.intro"}}</p>
+
+    {{#if hasUnpriced}}
+        <p class="rdbd-warning">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            {{localize "RDBD.TypeCosts.unpricedWarning"}}
+        </p>
+    {{/if}}
+
+    <div class="rdbd-cost-table-wrap">
+        <table class="rdbd-cost-table">
+            <thead>
+                <tr>
+                    <th>{{localize "RDBD.TypeCosts.type"}}</th>
+                    <th>{{localize "RDBD.TypeCosts.source"}}</th>
+                    <th>{{localize "RDBD.TypeCosts.treatedAs"}}</th>
+                    <th class="rdbd-cost-col">{{localize "RDBD.TypeCosts.cost"}}</th>
+                    <th class="rdbd-cost-col">{{localize "RDBD.TypeCosts.grouped"}}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each rows}}
+                    <tr class="{{#if unpriced}}rdbd-unpriced{{/if}}">
+                        <td>
+                            <span class="rdbd-cost-label">{{label}}</span>
+                            <code class="rdbd-cost-id">{{id}}</code>
+                        </td>
+                        <td>
+                            {{#if homebrew}}
+                                <span class="rdbd-tag rdbd-tag-type">
+                                    {{localize "RDBD.TypeCosts.homebrew"}}
+                                </span>
+                            {{else}}
+                                <span class="rdbd-tag" data-tooltip="{{localize 'RDBD.TypeCosts.coreHint'}}">
+                                    {{localize "RDBD.TypeCosts.core"}} {{systemCost}}
+                                </span>
+                            {{/if}}
+                            {{#if overridden}}
+                                <span class="rdbd-tag rdbd-tag-cost">
+                                    {{localize "RDBD.TypeCosts.overridden"}}
+                                </span>
+                            {{/if}}
+                        </td>
+                        <td>
+                            {{#if aliasOptions}}
+                                {{!-- Homebrew only: borrowing an official type's rules, not just
+                                      its price. See rulesType() in config/adversary-types.mjs. --}}
+                                <select name="alias.{{id}}"
+                                        data-tooltip="{{localize 'RDBD.TypeCosts.treatedAsHint'}}">
+                                    <option value="">{{localize "RDBD.TypeCosts.treatedAsNone"}}</option>
+                                    {{#each aliasOptions}}
+                                        <option value="{{value}}" {{#if selected}}selected{{/if}}>
+                                            {{label}}
+                                        </option>
+                                    {{/each}}
+                                </select>
+                            {{else}}
+                                <span class="rdbd-cost-id">&mdash;</span>
+                            {{/if}}
+                        </td>
+                        <td class="rdbd-cost-col">
+                            <input type="number" name="cost.{{id}}" value="{{cost}}"
+                                   min="0" step="0.5"
+                                   placeholder="{{localize 'RDBD.TypeCosts.unset'}}"
+                                   data-tooltip="{{localize 'RDBD.TypeCosts.costHint'}}">
+                        </td>
+                        <td class="rdbd-cost-col">
+                            <input type="checkbox" name="grouped.{{id}}" {{checked grouped}}
+                                   data-tooltip="{{localize 'RDBD.TypeCosts.groupedHint'}}">
+                        </td>
+                    </tr>
+                {{/each}}
+            </tbody>
+        </table>
+    </div>
+
+    <footer class="rdbd-type-costs-footer">
+        <button type="button" class="rdbd-badge rdbd-badge-danger" data-action="resetAll"
+                {{disabled (not hasOverrides)}}
+                data-tooltip="{{localize 'RDBD.TypeCosts.resetHint'}}">
+            <i class="fa-solid fa-rotate-left"></i>
+            {{localize "RDBD.TypeCosts.resetAll"}}
+        </button>
+        <button type="submit" class="rdbd-save">
+            <i class="fa-solid fa-floppy-disk"></i>
+            {{localize "RDBD.Common.save"}}
+        </button>
+    </footer>
+</div>

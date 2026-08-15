@@ -1,0 +1,71 @@
+{{!--
+    Deck Editor. Left rail lists decks; right pane shows the selected deck's contents.
+    The whole window is a drop target — see DeckEditor#dragDrop.
+--}}
+<div class="rdbd-editor-layout">
+
+    <aside class="rdbd-deck-list">
+        <header class="rdbd-pane-header">
+            <h3>{{localize "RDBD.DeckEditor.decks"}}</h3>
+            <button type="button" data-action="createDeck">
+                <i class="fa-solid fa-plus"></i>
+                {{localize "RDBD.DeckEditor.newDeck"}}
+            </button>
+        </header>
+
+        {{#if decks.length}}
+            <ul class="rdbd-decks">
+                {{#each decks}}{{> rdbdDeckRow}}{{/each}}
+            </ul>
+        {{else}}
+            <p class="rdbd-empty">{{localize "RDBD.DeckEditor.noDecks"}}</p>
+        {{/if}}
+    </aside>
+
+    <section class="rdbd-deck-contents">
+        {{#if selectedDeck}}
+            <header class="rdbd-pane-header">
+                <h3>{{selectedDeck.name}}</h3>
+                <span class="rdbd-tag">{{adversaries.length}} {{localize "RDBD.DeckEditor.adversaries"}}</span>
+            </header>
+
+            <p class="rdbd-hint">
+                <i class="fa-solid fa-hand-pointer"></i>
+                {{localize "RDBD.DeckEditor.dropHint"}}
+            </p>
+
+            {{#if adversaries.length}}
+                <ul class="rdbd-adversary-list">
+                    {{#each adversaries}}
+                        <li class="rdbd-adversary-row" data-uuid="{{uuid}}">
+                            <img src="{{img}}" alt="{{name}}" data-action="openAdversary" data-uuid="{{uuid}}"
+                                 data-tooltip="{{localize 'RDBD.Card.openSheet'}}">
+                            <span class="rdbd-adversary-name">{{name}}</span>
+                            <span class="rdbd-tag rdbd-tag-type">{{typeLabel}}</span>
+                            <span class="rdbd-tag">{{localize "RDBD.Card.tier"}} {{tier}}</span>
+                            {{#if unpriced}}
+                                <span class="rdbd-tag rdbd-tag-unpriced"
+                                      data-tooltip="{{localize 'RDBD.TypeCosts.unpricedTooltip'}}">
+                                    <i class="fa-solid fa-triangle-exclamation"></i>
+                                    {{localize "RDBD.TypeCosts.unset"}}
+                                </span>
+                            {{else}}
+                                <span class="rdbd-tag rdbd-tag-cost">{{baseCost}} {{localize "RDBD.Card.bp"}}</span>
+                            {{/if}}
+                            <button type="button" class="rdbd-badge rdbd-badge-danger"
+                                    data-action="removeAdversary" data-uuid="{{uuid}}"
+                                    data-tooltip="{{localize 'RDBD.DeckEditor.remove'}}"
+                                    aria-label="{{localize 'RDBD.DeckEditor.remove'}}">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </li>
+                    {{/each}}
+                </ul>
+            {{else}}
+                <p class="rdbd-empty">{{localize "RDBD.DeckEditor.emptyDeck"}}</p>
+            {{/if}}
+        {{else}}
+            <p class="rdbd-empty">{{localize "RDBD.DeckEditor.selectPrompt"}}</p>
+        {{/if}}
+    </section>
+</div>

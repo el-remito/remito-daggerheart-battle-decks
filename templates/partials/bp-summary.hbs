@@ -1,0 +1,55 @@
+{{!--
+    Battle Points readout — the same four rows as Main_v2!B17:C21, in the same order.
+    A negative Budget Left is highlighted, mirroring the spreadsheet's conditional formatting.
+--}}
+<section class="rdbd-summary">
+    <h3>
+        {{localize "RDBD.Summary.title"}}
+        <button type="button" class="rdbd-badge" data-action="openCosts"
+                data-tooltip="{{localize 'RDBD.TypeCosts.menuName'}}"
+                aria-label="{{localize 'RDBD.TypeCosts.menuName'}}">
+            <i class="fa-solid fa-coins"></i>
+        </button>
+    </h3>
+
+    <dl class="rdbd-summary-rows">
+        <div class="rdbd-summary-row">
+            <dt>{{localize "RDBD.Summary.baseline"}}</dt>
+            <dd>{{budget.baseline}}</dd>
+        </div>
+        <div class="rdbd-summary-row">
+            <dt>{{localize "RDBD.Summary.adversaries"}}</dt>
+            <dd>-{{budget.adversaries}}</dd>
+        </div>
+        <div class="rdbd-summary-row">
+            <dt>{{localize "RDBD.Summary.modifiers"}}</dt>
+            <dd>{{#if (gte budget.modifiers 0)}}+{{/if}}{{budget.modifiers}}</dd>
+        </div>
+        <div class="rdbd-summary-row rdbd-summary-total {{#if overBudget}}rdbd-over-budget{{/if}}">
+            <dt>{{localize "RDBD.Summary.budgetLeft"}}</dt>
+            <dd>{{budget.budgetLeft}}</dd>
+        </div>
+    </dl>
+
+    {{!--
+        Where the budget actually went. The dropdowns upstairs no longer print their own values,
+        so this is the one place the arithmetic is spelled out: every GM modifier that is
+        contributing something, followed by the two composition-driven rows the sheet derives,
+        which stay visible because their counts explain the roster even at 0.
+    --}}
+    <ul class="rdbd-derived">
+        {{#each modifierRows}}
+            <li class="{{#if derived}}rdbd-derived-composition{{/if}}">
+                <span>{{label}}</span>
+                <span class="rdbd-derived-detail">{{detail}}</span>
+                <span class="rdbd-derived-value">
+                    {{#if (gte value 0)}}+{{/if}}{{value}}
+                </span>
+            </li>
+        {{/each}}
+    </ul>
+
+    {{#if overBudget}}
+        <p class="rdbd-warning">{{localize "RDBD.Summary.overBudget"}}</p>
+    {{/if}}
+</section>

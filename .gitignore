@@ -1,0 +1,20 @@
+# Working references, kept locally but out of the published module.
+#
+# These are the rules source and the original design brief. They are what CLAUDE.md points at when
+# a Battle Points question comes up, so keep your copies in the repo root — they are simply not
+# distributed, since the module ships to Foundry users who have no use for a spreadsheet.
+Daggerheart Valiran Combat Encounter Calculator.xlsx
+Daggerheart Valiran Combat Encounter Calculator - Main_v2.csv
+Remito Daggerheat Battle Decks.md
+
+# Excel's lock file, created whenever the .xlsx is open.
+~$*.xlsx
+
+# OS and editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*~

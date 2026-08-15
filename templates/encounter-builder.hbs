@@ -1,0 +1,199 @@
+{{!--
+    Battle Encounters. Builder controls on top, generated roster below.
+    The form auto-submits on change (submitOnChange), so every input persists as it is touched.
+--}}
+<div class="rdbd-builder-layout">
+
+    <section class="rdbd-controls {{#if state.locked}}rdbd-locked{{/if}}">
+
+        <div class="rdbd-control-grid">
+            <div class="rdbd-field">
+                <label for="rdbd-party-tier">{{localize "RDBD.Builder.partyTier"}}</label>
+                <select id="rdbd-party-tier" name="partyTier" {{disabled state.locked}}>
+                    {{#each tiers}}
+                        <option value="{{value}}" {{#if selected}}selected{{/if}}>{{value}}</option>
+                    {{/each}}
+                </select>
+            </div>
+
+            <div class="rdbd-field">
+                <label for="rdbd-pc-count">{{localize "RDBD.Builder.pcCount"}}</label>
+                <input id="rdbd-pc-count" type="number" name="pcCount" value="{{state.pcCount}}"
+                       min="{{partySizeRange.min}}" max="{{partySizeRange.max}}" step="1"
+                       {{disabled state.locked}}>
+            </div>
+
+            <div class="rdbd-field">
+                <label for="rdbd-mode">{{localize "RDBD.Builder.mode"}}</label>
+                <select id="rdbd-mode" name="mode" {{disabled state.locked}}>
+                    {{#each modes}}
+                        <option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+                    {{/each}}
+                </select>
+            </div>
+
+            {{#if budgetMode}}
+                <div class="rdbd-field">
+                    <label for="rdbd-target">{{localize "RDBD.Builder.targetBP"}}</label>
+                    {{!-- Placeholder is the budget this encounter would get if left blank:
+                          baseline plus every modifier the GM has set. --}}
+                    <input id="rdbd-target" type="number" name="targetBP" value="{{state.targetBP}}"
+                           step="1" placeholder="{{expectedBP}}" {{disabled state.locked}}>
+                    <p class="rdbd-field-hint">{{localize "RDBD.Builder.targetBPHint"}}</p>
+                </div>
+            {{else}}
+                <div class="rdbd-field">
+                    <label for="rdbd-draw">{{localize "RDBD.Builder.drawCount"}}</label>
+                    <input id="rdbd-draw" type="number" name="drawCount" value="{{state.drawCount}}"
+                           min="1" step="1" {{disabled state.locked}}>
+                    <p class="rdbd-field-hint">{{localize "RDBD.Builder.drawCountHint"}}</p>
+                </div>
+            {{/if}}
+        </div>
+
+        <div class="rdbd-columns">
+
+            <fieldset class="rdbd-decks-picker">
+                <legend>
+                    {{localize "RDBD.Builder.decks"}}
+                    <button type="button" class="rdbd-badge" data-action="openDecks"
+                            data-tooltip="{{localize 'RDBD.Builder.manageDecks'}}"
+                            aria-label="{{localize 'RDBD.Builder.manageDecks'}}">
+                        <i class="fa-solid fa-gear"></i>
+                    </button>
+                </legend>
+
+                {{#if hasDecks}}
+                    {{!-- A multi-select scrolls, where a checkbox per deck grew the panel without
+                          bound once a GM had more than a handful. --}}
+                    <select id="rdbd-decks" class="rdbd-deck-select" name="deckIds" multiple
+                            size="{{deckSelectSize}}" {{disabled state.locked}}>
+                        {{#each decks}}
+                            <option value="{{id}}" {{#if selected}}selected{{/if}}>
+                                {{name}} ({{count}})
+                            </option>
+                        {{/each}}
+                    </select>
+                    <p class="rdbd-field-hint">{{localize "RDBD.Builder.decksHint"}}</p>
+                {{else}}
+                    <p class="rdbd-empty">{{localize "RDBD.Builder.noDecks"}}</p>
+                {{/if}}
+
+                {{#if deckless}}
+                    <p class="rdbd-hint rdbd-deckless-note">
+                        <i class="fa-solid fa-circle-info"></i>
+                        {{localize "RDBD.Builder.decklessNote"}}
+                    </p>
+                {{/if}}
+            </fieldset>
+
+            <fieldset class="rdbd-modifiers">
+                <legend>{{localize "RDBD.Builder.modifiers"}}</legend>
+
+                {{#each selects}}
+                    <div class="rdbd-field rdbd-field-inline">
+                        <label for="rdbd-mod-{{key}}">{{label}}</label>
+                        {{!-- Labels are abbreviated to fit the column; `hint` carries the source
+                              spreadsheet's full wording as a hover title. --}}
+                        <select id="rdbd-mod-{{key}}" name="modifiers.{{key}}"
+                                {{disabled @root.state.locked}}>
+                            {{#each options}}
+                                <option value="{{value}}" {{#if hint}}title="{{hint}}"{{/if}}
+                                        {{#if selected}}selected{{/if}}>{{label}}</option>
+                            {{/each}}
+                        </select>
+                    </div>
+                {{/each}}
+
+                <div class="rdbd-field rdbd-field-inline">
+                    <label for="rdbd-mod-damage">{{localize "RDBD.Modifier.extraDamage.label"}}</label>
+                    <input id="rdbd-mod-damage" type="number" name="modifiers.extraDamageDice"
+                           value="{{state.modifiers.extraDamageDice}}" min="0" max="{{maxExtraDamage}}"
+                           step="1" {{disabled state.locked}}>
+                </div>
+
+                <div class="rdbd-field rdbd-field-inline">
+                    <label for="rdbd-mod-adhoc">{{localize "RDBD.Modifier.adHoc.label"}}</label>
+                    <input id="rdbd-mod-adhoc" type="number" name="modifiers.adHoc"
+                           value="{{state.modifiers.adHoc}}" step="1" {{disabled state.locked}}>
+                </div>
+            </fieldset>
+
+            {{> rdbdBpSummary}}
+        </div>
+
+        <div class="rdbd-actions">
+            <button type="button" class="rdbd-generate" data-action="generate" {{disabled state.locked}}>
+                <i class="fa-solid fa-dice"></i>
+                {{localize "RDBD.Builder.generate"}}
+            </button>
+
+            {{!-- Free draw only: Generate replaces the roster, this one adds to it. --}}
+            {{#unless budgetMode}}
+                <button type="button" class="rdbd-generate rdbd-draw-another" data-action="drawOne"
+                        {{disabled state.locked}}
+                        data-tooltip="{{localize 'RDBD.Builder.drawAnotherHint'}}">
+                    <i class="fa-solid fa-plus"></i>
+                    {{localize "RDBD.Builder.drawAnother"}}
+                </button>
+            {{/unless}}
+        </div>
+    </section>
+
+    <section class="rdbd-results">
+        <header class="rdbd-pane-header">
+            <h3>
+                {{localize "RDBD.Builder.encounter"}}
+                {{#if state.locked}}
+                    <span class="rdbd-tag rdbd-tag-accepted">{{localize "RDBD.Builder.accepted"}}</span>
+                {{/if}}
+            </h3>
+
+            {{#if hasCards}}
+                <div class="rdbd-result-badges">
+                    {{#if state.locked}}
+                        <button type="button" class="rdbd-badge" data-action="unlock"
+                                data-tooltip="{{localize 'RDBD.Builder.unlockHint'}}">
+                            <i class="fa-solid fa-lock-open"></i>
+                            {{localize "RDBD.Builder.unlock"}}
+                        </button>
+                    {{else}}
+                        <button type="button" class="rdbd-badge" data-action="accept"
+                                data-tooltip="{{localize 'RDBD.Builder.acceptHint'}}">
+                            <i class="fa-solid fa-check"></i>
+                            {{localize "RDBD.Builder.accept"}}
+                        </button>
+                        <button type="button" class="rdbd-badge" data-action="reroll"
+                                data-tooltip="{{localize 'RDBD.Builder.rerollHint'}}">
+                            <i class="fa-solid fa-dice-d20"></i>
+                            {{localize "RDBD.Builder.reroll"}}
+                        </button>
+                        <button type="button" class="rdbd-badge rdbd-badge-danger" data-action="reset"
+                                data-tooltip="{{localize 'RDBD.Builder.resetHint'}}">
+                            <i class="fa-solid fa-eraser"></i>
+                            {{localize "RDBD.Builder.reset"}}
+                        </button>
+                    {{/if}}
+                </div>
+            {{/if}}
+        </header>
+
+        {{#if hasCards}}
+            <p class="rdbd-hint">
+                <i class="fa-solid fa-arrow-pointer"></i>
+                {{localize "RDBD.Builder.cardHint"}}
+            </p>
+            <div class="rdbd-card-grid">
+                {{#each cards}}{{> rdbdAdversaryCard}}{{/each}}
+            </div>
+        {{else}}
+            <p class="rdbd-empty">
+                {{#if state.generated}}
+                    {{localize "RDBD.Builder.noResults"}}
+                {{else}}
+                    {{localize "RDBD.Builder.notGenerated"}}
+                {{/if}}
+            </p>
+        {{/if}}
+    </section>
+</div>

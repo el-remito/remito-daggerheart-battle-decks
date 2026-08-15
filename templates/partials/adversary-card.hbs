@@ -1,0 +1,68 @@
+{{!--
+    One drawn adversary.
+
+    data-uuid is present only for a real actor; deckless role cards omit it, which is what makes
+    them non-clickable and non-draggable (the drag selector requires [data-uuid]).
+    data-token-count is the head count to spawn on a canvas drop — for a minion card that is
+    groups x party size, not the number of BP-costing groups.
+--}}
+<div class="rdbd-card {{#if grouped}}rdbd-card-grouped{{/if}} {{#if spawned}}rdbd-card-spawned{{/if}}"
+     data-key="{{key}}"
+     {{#if spawned}}data-tooltip="{{localize 'RDBD.Card.spawned'}}"{{/if}}
+     {{#if uuid}}data-uuid="{{uuid}}" data-token-count="{{displayCount}}" draggable="true"{{/if}}>
+
+    <div class="rdbd-card-portrait" {{#if uuid}}data-action="openCard" data-uuid="{{uuid}}"
+         data-tooltip="{{localize 'RDBD.Card.openSheet'}}"{{/if}}>
+        {{#if img}}
+            <img src="{{img}}" alt="{{name}}">
+        {{else}}
+            <i class="fa-solid fa-masks-theater rdbd-card-icon"></i>
+        {{/if}}
+        {{#if (gt displayCount 1)}}
+            <span class="rdbd-card-count">&times;{{displayCount}}</span>
+        {{/if}}
+        {{#if spawned}}
+            <span class="rdbd-card-spawned-mark">
+                <i class="fa-solid fa-map-pin"></i>
+            </span>
+        {{/if}}
+    </div>
+
+    <div class="rdbd-card-body">
+        <h4 class="rdbd-card-name">{{name}}</h4>
+        <div class="rdbd-card-tags">
+            <span class="rdbd-tag rdbd-tag-type">{{typeLabel}}</span>
+            <span class="rdbd-tag">{{localize "RDBD.Card.tier"}} {{tier}}</span>
+            {{#if unpriced}}
+                {{!-- Charging 0 for a homebrew type nobody has priced would silently corrupt the
+                      budget, so the card says so instead. --}}
+                <span class="rdbd-tag rdbd-tag-unpriced"
+                      data-tooltip="{{localize 'RDBD.TypeCosts.unpricedTooltip'}}">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    {{localize "RDBD.TypeCosts.unset"}}
+                </span>
+            {{else}}
+                <span class="rdbd-tag rdbd-tag-cost">{{lineCost}} {{localize "RDBD.Card.bp"}}</span>
+            {{/if}}
+        </div>
+        {{#if grouped}}
+            <p class="rdbd-card-note">{{localize "RDBD.Card.minionGroup"}}</p>
+        {{/if}}
+    </div>
+
+    {{!-- @root because this partial renders inside {{#each cards}}. --}}
+    {{#unless @root.state.locked}}
+        <div class="rdbd-card-badges">
+            <button type="button" class="rdbd-badge" data-action="rerollCard" data-key="{{key}}"
+                    data-tooltip="{{localize 'RDBD.Card.reroll'}}"
+                    aria-label="{{localize 'RDBD.Card.reroll'}}">
+                <i class="fa-solid fa-dice-d20"></i>
+            </button>
+            <button type="button" class="rdbd-badge" data-action="putBack" data-key="{{key}}"
+                    data-tooltip="{{localize 'RDBD.Card.putBack'}}"
+                    aria-label="{{localize 'RDBD.Card.putBack'}}">
+                <i class="fa-solid fa-rotate-left"></i>
+            </button>
+        </div>
+    {{/unless}}
+</div>

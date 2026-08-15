@@ -1,0 +1,731 @@
+/**
+ * Remito's Battle Decks.
+ *
+ * Builds on the Daggerheart system's own custom properties (--golden, --dark-blue, --beige,
+ * --medium-red, --dh-font-*, --color-border) so the windows sit next to the system's sheets
+ * without looking bolted on. Every var() carries a fallback so the module degrades gracefully
+ * if the system renames something.
+ *
+ * All module classes are `rdbd-` prefixed. Anything the system does not already theme is defined
+ * as an --rdbd-* property using light-dark(), because Foundry's --color-text-primary and
+ * --color-bg-btn resolve to white in dark mode and would make text invisible.
+ */
+
+.rdbd-app {
+    --rdbd-text: light-dark(#222222, #efe6d8);
+    --rdbd-text-muted: light-dark(#5a5a5a, #a9a2b8);
+    --rdbd-panel-bg: light-dark(#f5f2ed, #1d1b33);
+    --rdbd-panel-bg-alt: light-dark(#ebe5db, #24213d);
+    --rdbd-border: var(--color-border, light-dark(#c3bcae, #4a4566));
+    --rdbd-accent: var(--golden, #f3c267);
+    --rdbd-danger: var(--medium-red, #d04747);
+    --rdbd-gap: 0.5rem;
+}
+
+/* -------------------------------------------- */
+/*  Shared chrome                               */
+/* -------------------------------------------- */
+
+.rdbd-app .window-content {
+    color: var(--rdbd-text);
+    font-family: var(--dh-font-body, inherit);
+    overflow-y: auto;
+}
+
+.rdbd-app h3,
+.rdbd-app h4 {
+    font-family: var(--dh-font-subtitle, inherit);
+    margin: 0;
+    border: none;
+}
+
+.rdbd-pane-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--rdbd-gap);
+    padding-bottom: 0.35rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid var(--rdbd-border);
+}
+
+.rdbd-empty,
+.rdbd-hint,
+.rdbd-field-hint {
+    color: var(--rdbd-text-muted);
+    font-size: var(--font-size-12, 0.75rem);
+    margin: 0.35rem 0;
+}
+
+.rdbd-empty {
+    padding: 1rem;
+    text-align: center;
+    font-style: italic;
+}
+
+.rdbd-warning {
+    color: var(--rdbd-danger);
+    font-weight: 600;
+    margin: 0.35rem 0 0;
+    font-size: var(--font-size-12, 0.75rem);
+}
+
+/* Small icon buttons used for every badge-style control. */
+.rdbd-app .rdbd-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.15rem 0.4rem;
+    line-height: 1.4;
+    width: auto;
+    flex: 0 0 auto;
+    font-size: var(--font-size-12, 0.75rem);
+    background: var(--dh-button-color-bg, var(--rdbd-panel-bg-alt));
+    border: 1px solid var(--dh-button-color-border, var(--rdbd-border));
+    border-radius: 4px;
+    color: var(--dh-button-color-text, var(--rdbd-text));
+    cursor: pointer;
+}
+
+.rdbd-app .rdbd-badge:hover:not(:disabled) {
+    border-color: var(--rdbd-accent);
+    color: var(--rdbd-accent);
+}
+
+.rdbd-app .rdbd-badge-danger:hover:not(:disabled) {
+    border-color: var(--rdbd-danger);
+    color: var(--rdbd-danger);
+}
+
+/* Pill labels for type / tier / cost. */
+.rdbd-tag {
+    display: inline-block;
+    padding: 0.05rem 0.4rem;
+    border: 1px solid var(--rdbd-border);
+    border-radius: 999px;
+    font-size: var(--font-size-11, 0.7rem);
+    white-space: nowrap;
+}
+
+.rdbd-tag-type {
+    border-color: var(--rdbd-accent);
+    color: var(--rdbd-accent);
+}
+
+.rdbd-tag-cost {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+.rdbd-tag-accepted {
+    border-color: var(--green, #40a640);
+    color: var(--green, #40a640);
+}
+
+/* An adversary type nobody has priced yet — it is charging 0 BP and should not be trusted. */
+.rdbd-tag-unpriced {
+    border-color: var(--rdbd-danger);
+    color: var(--rdbd-danger);
+    font-weight: 600;
+}
+
+/* -------------------------------------------- */
+/*  Encounter builder                           */
+/* -------------------------------------------- */
+
+.rdbd-builder-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    height: 100%;
+}
+
+.rdbd-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.6rem;
+    background: var(--rdbd-panel-bg);
+    border: 1px solid var(--rdbd-border);
+    border-radius: 6px;
+}
+
+/* An accepted encounter is read-only; dim the controls so it is obvious why nothing responds. */
+.rdbd-controls.rdbd-locked {
+    opacity: 0.6;
+}
+
+.rdbd-control-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: var(--rdbd-gap);
+}
+
+.rdbd-columns {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--rdbd-gap);
+    align-items: start;
+}
+
+.rdbd-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.rdbd-field > label {
+    font-size: var(--font-size-12, 0.75rem);
+    font-weight: 600;
+}
+
+/* Modifier rows read better as label-left / control-right. */
+.rdbd-field-inline {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: var(--rdbd-gap);
+    margin-bottom: 0.25rem;
+}
+
+.rdbd-field-inline > label {
+    font-weight: 400;
+}
+
+.rdbd-field-inline input[type='number'] {
+    width: 4.5rem;
+    text-align: center;
+}
+
+.rdbd-app fieldset {
+    border: 1px solid var(--rdbd-border);
+    border-radius: 4px;
+    padding: 0.5rem 0.6rem;
+    margin: 0;
+    min-width: 0;
+}
+
+.rdbd-app legend {
+    display: flex;
+    align-items: center;
+    gap: var(--rdbd-gap);
+    padding: 0 0.35rem;
+    font-family: var(--dh-font-subtitle, inherit);
+    font-size: var(--font-size-13, 0.8rem);
+    font-weight: 600;
+}
+
+.rdbd-check {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: var(--rdbd-gap);
+    padding: 0.15rem 0;
+    cursor: pointer;
+}
+
+.rdbd-deck-count {
+    min-width: 1.5rem;
+    padding: 0 0.35rem;
+    border-radius: 999px;
+    background: var(--rdbd-panel-bg-alt);
+    text-align: center;
+    font-size: var(--font-size-11, 0.7rem);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Multi-select deck picker. Sized in rows by the app, so it scrolls rather than growing the
+   panel once a GM has a large catalogue. */
+.rdbd-app .rdbd-deck-select {
+    width: 100%;
+    min-height: 0;
+    padding: 0.15rem;
+}
+
+.rdbd-app .rdbd-deck-select option {
+    padding: 0.1rem 0.25rem;
+    border-radius: 3px;
+}
+
+.rdbd-deckless-note {
+    margin-top: 0.5rem;
+    padding-top: 0.4rem;
+    border-top: 1px dashed var(--rdbd-border);
+}
+
+.rdbd-actions {
+    display: flex;
+    justify-content: center;
+    gap: var(--rdbd-gap);
+}
+
+.rdbd-app .rdbd-generate {
+    flex: 0 0 auto;
+    padding: 0.4rem 1.5rem;
+    font-family: var(--dh-font-subtitle, inherit);
+    font-size: var(--font-size-14, 0.9rem);
+    font-weight: 600;
+}
+
+/* -------------------------------------------- */
+/*  Battle Points summary                       */
+/* -------------------------------------------- */
+
+.rdbd-summary {
+    padding: 0.5rem 0.6rem;
+    background: var(--rdbd-panel-bg-alt);
+    border: 1px solid var(--rdbd-border);
+    border-radius: 4px;
+}
+
+.rdbd-summary h3 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--rdbd-gap);
+    font-size: var(--font-size-13, 0.8rem);
+    margin-bottom: 0.35rem;
+}
+
+/* Secondary action beside Generate; keep it visually subordinate. */
+.rdbd-app .rdbd-draw-another {
+    padding-inline: 1rem;
+    font-weight: 500;
+}
+
+.rdbd-summary-rows {
+    margin: 0;
+}
+
+.rdbd-summary-row {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--rdbd-gap);
+    padding: 0.1rem 0;
+}
+
+.rdbd-summary-row dt,
+.rdbd-summary-row dd {
+    margin: 0;
+}
+
+.rdbd-summary-row dd {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+.rdbd-summary-total {
+    margin-top: 0.25rem;
+    padding-top: 0.25rem;
+    border-top: 1px solid var(--rdbd-border);
+    font-size: var(--font-size-14, 0.9rem);
+}
+
+/* Mirrors the source spreadsheet, which flags a negative Budget Left in red. */
+.rdbd-over-budget dd,
+.rdbd-over-budget dt {
+    color: var(--rdbd-danger);
+}
+
+.rdbd-derived {
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0.4rem 0 0;
+    border-top: 1px dashed var(--rdbd-border);
+    font-size: var(--font-size-11, 0.7rem);
+}
+
+.rdbd-derived li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: baseline;
+    gap: var(--rdbd-gap);
+    padding: 0.05rem 0;
+}
+
+.rdbd-derived li > span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The two rows the encounter's own composition drives, separated from the GM's own choices. */
+.rdbd-derived-composition:first-of-type {
+    margin-top: 0.25rem;
+}
+
+.rdbd-derived .rdbd-derived-composition > span:first-child {
+    font-style: italic;
+}
+
+.rdbd-derived-detail {
+    color: var(--rdbd-text-muted);
+}
+
+.rdbd-derived-value {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    min-width: 1.5rem;
+    text-align: right;
+}
+
+/* -------------------------------------------- */
+/*  Result cards                                */
+/* -------------------------------------------- */
+
+.rdbd-results {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1;
+}
+
+.rdbd-result-badges {
+    display: flex;
+    gap: 0.35rem;
+}
+
+.rdbd-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: var(--rdbd-gap);
+    overflow-y: auto;
+    padding: 0.15rem;
+}
+
+.rdbd-card {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--rdbd-gap);
+    padding: 0.4rem;
+    background: var(--rdbd-panel-bg);
+    border: 1px solid var(--rdbd-border);
+    border-radius: 6px;
+}
+
+.rdbd-card[draggable='true'] {
+    cursor: grab;
+}
+
+.rdbd-card:hover {
+    border-color: var(--rdbd-accent);
+}
+
+.rdbd-card-grouped {
+    border-style: dashed;
+}
+
+/* Already dragged onto the canvas. Dimmed rather than disabled — it stays clickable and
+   re-draggable, this is a "you have placed this one" reminder, not a lock. */
+.rdbd-card-spawned {
+    opacity: 0.45;
+    filter: grayscale(85%);
+}
+
+.rdbd-card-spawned:hover,
+.rdbd-card-spawned:focus-within {
+    opacity: 0.8;
+    filter: grayscale(35%);
+}
+
+.rdbd-card-spawned-mark {
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    display: grid;
+    place-items: center;
+    width: 1.1rem;
+    height: 1.1rem;
+    background: var(--rdbd-accent);
+    color: var(--dark-blue, #18162e);
+    border-radius: 999px;
+    font-size: var(--font-size-11, 0.7rem);
+}
+
+.rdbd-card-portrait {
+    position: relative;
+    width: 52px;
+    height: 52px;
+    flex: 0 0 auto;
+}
+
+.rdbd-card-portrait img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border: 1px solid var(--rdbd-border);
+    border-radius: 4px;
+}
+
+.rdbd-card-portrait[data-action] {
+    cursor: pointer;
+}
+
+.rdbd-card-icon {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    border: 1px dashed var(--rdbd-border);
+    border-radius: 4px;
+    color: var(--rdbd-text-muted);
+}
+
+.rdbd-card-count {
+    position: absolute;
+    right: -4px;
+    bottom: -4px;
+    padding: 0 0.3rem;
+    background: var(--rdbd-accent);
+    color: var(--dark-blue, #18162e);
+    border-radius: 999px;
+    font-size: var(--font-size-11, 0.7rem);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.rdbd-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+.rdbd-card-name {
+    font-size: var(--font-size-13, 0.8rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rdbd-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem;
+}
+
+.rdbd-card-note {
+    margin: 0;
+    color: var(--rdbd-text-muted);
+    font-size: var(--font-size-11, 0.7rem);
+}
+
+/* Badges hide until hover so the card stays legible at a glance. */
+.rdbd-card-badges {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    display: flex;
+    gap: 0.2rem;
+    opacity: 0;
+    transition: opacity 120ms ease-in-out;
+}
+
+.rdbd-card:hover .rdbd-card-badges,
+.rdbd-card:focus-within .rdbd-card-badges {
+    opacity: 1;
+}
+
+/* -------------------------------------------- */
+/*  Deck editor                                 */
+/* -------------------------------------------- */
+
+.rdbd-editor-layout {
+    display: grid;
+    grid-template-columns: minmax(180px, 240px) 1fr;
+    gap: 0.75rem;
+    height: 100%;
+    min-height: 0;
+}
+
+.rdbd-deck-list,
+.rdbd-deck-contents {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 0.6rem;
+    background: var(--rdbd-panel-bg);
+    border: 1px solid var(--rdbd-border);
+    border-radius: 6px;
+}
+
+.rdbd-decks {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+}
+
+.rdbd-deck-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.25rem;
+    border-radius: 4px;
+}
+
+.rdbd-deck-row.rdbd-selected {
+    background: var(--rdbd-panel-bg-alt);
+    outline: 1px solid var(--rdbd-accent);
+}
+
+/* minmax(0, 1fr) and the min-width below are what stop a long deck name from pushing the count
+   badge out of the button and overlapping the rows underneath. */
+.rdbd-app .rdbd-deck-name {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--rdbd-gap);
+    width: 100%;
+    min-width: 0;
+    padding: 0.2rem 0.3rem;
+    background: none;
+    border: none;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.rdbd-deck-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rdbd-deck-row .rdbd-deck-controls {
+    display: flex;
+    gap: 0.2rem;
+    opacity: 0;
+    transition: opacity 120ms ease-in-out;
+}
+
+.rdbd-deck-row:hover .rdbd-deck-controls,
+.rdbd-deck-row:focus-within .rdbd-deck-controls,
+.rdbd-deck-row.rdbd-selected .rdbd-deck-controls {
+    opacity: 1;
+}
+
+.rdbd-adversary-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+}
+
+.rdbd-adversary-row {
+    display: grid;
+    grid-template-columns: 32px 1fr auto auto auto auto;
+    align-items: center;
+    gap: var(--rdbd-gap);
+    padding: 0.25rem;
+    border-bottom: 1px solid var(--rdbd-border);
+}
+
+.rdbd-adversary-row:last-child {
+    border-bottom: none;
+}
+
+.rdbd-adversary-row img {
+    width: 32px;
+    height: 32px;
+    object-fit: cover;
+    border: 1px solid var(--rdbd-border);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.rdbd-adversary-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* -------------------------------------------- */
+/*  Adversary BP costs                          */
+/* -------------------------------------------- */
+
+.rdbd-type-costs {
+    display: flex;
+    flex-direction: column;
+    gap: var(--rdbd-gap);
+    height: 100%;
+    min-height: 0;
+}
+
+.rdbd-cost-table-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    background: var(--rdbd-panel-bg);
+    border: 1px solid var(--rdbd-border);
+    border-radius: 6px;
+}
+
+.rdbd-cost-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-13, 0.8rem);
+}
+
+.rdbd-cost-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 0.35rem 0.5rem;
+    background: var(--rdbd-panel-bg-alt);
+    border-bottom: 1px solid var(--rdbd-border);
+    font-family: var(--dh-font-subtitle, inherit);
+    text-align: left;
+}
+
+.rdbd-cost-table td {
+    padding: 0.3rem 0.5rem;
+    border-bottom: 1px solid var(--rdbd-border);
+    vertical-align: middle;
+}
+
+.rdbd-cost-table tr:last-child td {
+    border-bottom: none;
+}
+
+.rdbd-cost-col {
+    width: 6.5rem;
+    text-align: center;
+}
+
+.rdbd-cost-table td.rdbd-cost-col input[type='number'] {
+    width: 5rem;
+    text-align: center;
+}
+
+.rdbd-cost-label {
+    display: block;
+    font-weight: 600;
+}
+
+.rdbd-cost-id {
+    color: var(--rdbd-text-muted);
+    font-size: var(--font-size-11, 0.7rem);
+}
+
+/* Types with no cost sort to the top; make it obvious why they are there. */
+.rdbd-cost-table tr.rdbd-unpriced {
+    background: color-mix(in srgb, var(--rdbd-danger) 12%, transparent);
+}
+
+.rdbd-type-costs-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--rdbd-gap);
+}
+
+.rdbd-app .rdbd-save {
+    flex: 0 0 auto;
+    padding: 0.35rem 1.5rem;
+    font-family: var(--dh-font-subtitle, inherit);
+    font-weight: 600;
+}

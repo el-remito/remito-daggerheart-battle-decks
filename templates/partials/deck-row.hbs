@@ -1,0 +1,22 @@
+{{!-- One deck in the Deck Editor's left rail. --}}
+<li class="rdbd-deck-row {{#if selected}}rdbd-selected{{/if}}" data-deck-id="{{id}}">
+    {{!-- The tooltip carries the full name, because a long one is truncated below. --}}
+    <button type="button" class="rdbd-deck-name plain" data-action="selectDeck" data-deck-id="{{id}}"
+            data-tooltip="{{name}}">
+        <i class="fa-solid fa-cards-blank"></i>
+        <span class="rdbd-deck-label">{{name}}</span>
+        <span class="rdbd-deck-count">{{count}}</span>
+    </button>
+    <div class="rdbd-deck-controls">
+        <button type="button" class="rdbd-badge" data-action="renameDeck" data-deck-id="{{id}}"
+                data-tooltip="{{localize 'RDBD.DeckEditor.rename'}}"
+                aria-label="{{localize 'RDBD.DeckEditor.rename'}}">
+            <i class="fa-solid fa-pen"></i>
+        </button>
+        <button type="button" class="rdbd-badge rdbd-badge-danger" data-action="deleteDeck" data-deck-id="{{id}}"
+                data-tooltip="{{localize 'RDBD.DeckEditor.delete'}}"
+                aria-label="{{localize 'RDBD.DeckEditor.delete'}}">
+            <i class="fa-solid fa-trash"></i>
+        </button>
+    </div>
+</li>
