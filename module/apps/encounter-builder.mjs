@@ -113,6 +113,7 @@ export class EncounterBuilder extends HandlebarsApplicationMixin(ApplicationV2) 
             openCard: EncounterBuilder.#onOpenCard,
             addDeck: EncounterBuilder.#onAddDeck,
             removeDeck: EncounterBuilder.#onRemoveDeck,
+            toggleSetup: EncounterBuilder.#onToggleSetup,
             openDecks: EncounterBuilder.#onOpenDecks,
             openCosts: EncounterBuilder.#onOpenCosts
         }
@@ -133,6 +134,21 @@ export class EncounterBuilder extends HandlebarsApplicationMixin(ApplicationV2) 
 
     /** Whether the search box had focus when the last render started, so it can be given back. */
     #deckFocused = false;
+
+    /**
+     * Whether the Decks / Modifiers / Battle Points block is folded away.
+     *
+     * Instance state for the same reason as {@link #deckFilter}: it is a statement about how this
+     * window is being looked at, not about the fight, and a window that opened folded shut would
+     * hide the controls from a GM who had forgotten why. Generate sets it (see AUTO_COLLAPSE); the
+     * arrow in the setup bar overrides it either way, and keeps whatever the GM chose until the
+     * next Generate.
+     *
+     * Note that the party fields and the Generate button deliberately sit outside it — the two
+     * things worth reaching for while staring at a roster.
+     * @type {boolean}
+     */
+    #setupCollapsed = false;
 
     /** @override */
     render(options) {
@@ -272,14 +288,19 @@ export class EncounterBuilder extends HandlebarsApplicationMixin(ApplicationV2) 
         const decks = Decks.getDecks();
         const spawned = state.spawned ?? [];
 
+        // Counts of adversaries that still resolve, not of stored UUIDs. A deck holding a deleted
+        // actor keeps its UUID on purpose, so the raw length overstates what the deck can draw.
+        const counts = await Decks.resolvedCounts();
+
         const deckRows = decks.map(deck => ({
             id: deck.id,
             name: deck.name,
-            count: deck.uuids.length,
+            count: counts.get(deck.id) ?? 0,
             selected: state.deckIds.includes(deck.id),
             // Pre-lowered here so the keystroke handler in #filterDeckOptions does no work per row
-            // beyond the comparison itself.
-            search: deck.name.toLowerCase()
+            // beyond the comparison itself. Tags and the deck's folder path are folded in: a tag
+            // nobody can search for is just decoration.
+            search: Decks.deckSearchText(deck)
         }));
 
         return {
@@ -296,6 +317,7 @@ export class EncounterBuilder extends HandlebarsApplicationMixin(ApplicationV2) 
             })),
             deckless: !state.deckIds.length,
             hasCards: (state.cards ?? []).length > 0,
+            setupCollapsed: this.#setupCollapsed,
 
             decks: deckRows,
             hasDecks: decks.length > 0,
@@ -399,8 +421,20 @@ export class EncounterBuilder extends HandlebarsApplicationMixin(ApplicationV2) 
         const state = this.state;
         if (state.locked) return;
         const cards = await generate(state);
+
+        // Generating is the moment the GM stops configuring and starts reading, so the setup folds
+        // away and the roster takes the room. Re-roll comes through here too, which is right: it is
+        // the same "show me the result" intent. Draw Another does not — it is an adjustment to an
+        // encounter already on the table, and folding the panel out from under that would be rude.
+        if (game.settings.get(MODULE_ID, SETTINGS.AUTO_COLLAPSE)) this.#setupCollapsed = true;
+
         // A fresh roster has never been placed, so nothing is greyed out.
         await this.#update({ cards, generated: true, spawned: [] });
+    }
+
+    static #onToggleSetup() {
+        this.#setupCollapsed = !this.#setupCollapsed;
+        this.render(false);
     }
 
     /**

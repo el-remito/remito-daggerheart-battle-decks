@@ -51,7 +51,36 @@
             {{/if}}
         </div>
 
-        <div class="rdbd-columns">
+        {{!--
+            Fold line. Everything below it collapses; the party fields above and the Generate
+            button below stay put, because those are the two things worth reaching for while
+            reading a roster. Generate folds this away on its own unless the GM has turned that
+            off in Game Settings.
+        --}}
+        <div class="rdbd-setup-bar {{#if setupCollapsed}}rdbd-setup-bar-collapsed{{/if}}">
+            <button type="button" class="rdbd-setup-toggle plain" data-action="toggleSetup"
+                    aria-expanded="{{#if setupCollapsed}}false{{else}}true{{/if}}"
+                    aria-controls="rdbd-setup"
+                    data-tooltip="{{#if setupCollapsed}}{{localize 'RDBD.Builder.expandSetupHint'}}{{else}}{{localize 'RDBD.Builder.collapseSetupHint'}}{{/if}}">
+                <i class="fa-solid fa-chevron-down rdbd-setup-arrow"></i>
+                <span>{{localize "RDBD.Builder.setup"}}</span>
+            </button>
+
+            {{#if setupCollapsed}}
+                {{!-- Collapsing hides the Battle Points panel, and the budget is the one number
+                      worth losing nothing over. Carry it, and the deck count, on the bar itself. --}}
+                <span class="rdbd-setup-digest">
+                    <span class="rdbd-tag">
+                        {{localize "RDBD.Builder.decks"}}: {{chosenDecks.length}}
+                    </span>
+                    <span class="rdbd-tag rdbd-tag-cost {{#if overBudget}}rdbd-over-budget{{/if}}">
+                        {{localize "RDBD.Summary.budgetLeft"}}: {{budget.budgetLeft}}
+                    </span>
+                </span>
+            {{/if}}
+        </div>
+
+        <div id="rdbd-setup" class="rdbd-columns" {{#if setupCollapsed}}hidden{{/if}}>
 
             <fieldset class="rdbd-decks-picker">
                 <legend>

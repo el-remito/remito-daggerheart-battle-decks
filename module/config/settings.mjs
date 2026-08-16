@@ -36,6 +36,22 @@ export function registerSettings() {
         }
     });
 
+    // Folder tree for the deck catalogue: [{ id, name, parentId, tags, sort, collapsed? }].
+    //
+    // A second setting rather than nesting decks inside folders, so that moving a deck writes one
+    // `folderId` instead of splicing it out of one nested array and into another — and so a folder
+    // record that goes bad can never take its decks down with it. See module/data/decks.mjs.
+    game.settings.register(MODULE_ID, SETTINGS.DECK_FOLDERS, {
+        scope: 'world',
+        config: false,
+        type: new fields.ArrayField(new fields.ObjectField()),
+        default: [],
+        onChange: () => {
+            invalidateCache();
+            refreshOpenWindows();
+        }
+    });
+
     // Last generated or accepted encounter, plus the builder inputs that produced it — party tier
     // and size included. This is what makes those two fields stick between sessions.
     game.settings.register(MODULE_ID, SETTINGS.ENCOUNTER, {
@@ -54,6 +70,24 @@ export function registerSettings() {
         type: new fields.ArrayField(new fields.ObjectField()),
         default: [],
         onChange: refreshOpenWindows
+    });
+
+    // The one checkbox this module puts in the Settings tab.
+    //
+    // `client`, not `world`: it decides how one person's window behaves and says nothing about the
+    // game. Two GMs at the same table should not be able to change each other's view. This is not
+    // a contradiction of the note above about party tier and size — those are *encounter data*
+    // that already had a home, whereas a view preference has nowhere else to live.
+    game.settings.register(MODULE_ID, SETTINGS.AUTO_COLLAPSE, {
+        name: `${NS}.Settings.autoCollapse.name`,
+        hint: `${NS}.Settings.autoCollapse.hint`,
+        scope: 'client',
+        config: true,
+        // A bare Boolean, not a BooleanField: this is the one setting Foundry renders itself, and
+        // the primitive constructor is what makes it a checkbox. The fields.* types above are there
+        // because those settings hold arrays of objects, not because the file has a house style.
+        type: Boolean,
+        default: true
     });
 
     game.settings.registerMenu(MODULE_ID, MENUS.TYPE_COSTS, {

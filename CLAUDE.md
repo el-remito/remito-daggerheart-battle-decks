@@ -128,6 +128,28 @@ world setting is what remembers them between sessions, and `PARTY_DEFAULTS` in `
 a first-run seed only. There used to be two `config: true` settings duplicating them — do not add
 them back, it gave two places to change one number.
 
+`autoCollapseSetup` is the *only* `config: true` setting, and is not a counterexample: it is a
+**view preference with no other home**, not a duplicate of state the window already owns, and it is
+`scope: 'client'` for that reason — two GMs at one table must not overwrite each other's. Anything
+that describes the *encounter* belongs in the `encounter` blob; anything that describes *how one
+person looks at it* belongs on the instance or, if it must persist, in a client setting.
+
+**The setup fold is instance state, and the fold line is deliberate.** `#setupCollapsed` lives on
+the app for the same reason as `#deckFilter` — it says nothing about the fight, and a window that
+opened folded shut would hide the controls from a GM who had forgotten why. `.rdbd-control-grid`
+(party tier, PCs, mode, target) and `.rdbd-actions` (Generate) sit **outside** the fold on purpose:
+they are the two things worth reaching for while reading a roster. Only `#onGenerate` collapses —
+`#onRerollAll` delegates to it and so inherits the behaviour, which is correct, but `#onDrawOne`
+must not, because it adjusts an encounter already on the table. Collapsing hides the Battle Points
+panel, so the setup bar carries the budget and deck count itself; if the fold ever grows to cover
+more, that digest has to keep pace or the GM loses the number the whole window exists to produce.
+
+Note that `.rdbd-columns` sets `display: grid`, which **beats the UA stylesheet's
+`[hidden] { display: none }`** — hence the explicit `.rdbd-columns[hidden]` rule. Removing it makes
+the fold silently do nothing. `.rdbd-card-grid` carries `flex: 1` and `align-content: start` so the
+freed height actually goes to the roster instead of becoming a gap, without stretching three cards
+to fill a tall window.
+
 **Modifiers add to the budget.** `Budget Left = Baseline - Adversaries + Modifiers`. So a
 **positive** modifier hands the GM more BP to spend (a bigger fight is affordable) and a
 **negative** one eats into the budget (the thing it describes is costing you). Getting this
@@ -164,6 +186,32 @@ cost still uses `quantity`.
 **UI code must not touch `game.settings` for decks.** Everything goes through
 `module/data/decks.mjs`, which owns validation, GM gating and the hydration cache.
 
+**The deck tree is two flat arrays, derived into a tree on read.** `decks` and `deckFolders` are
+separate settings; a deck's place in the tree is one `folderId`, a folder's is one `parentId`. Do
+not nest decks inside folder records — a move would become a splice through two levels, and one bad
+folder record would take its decks with it. Instead, `normalize()` reparents anything whose folder
+no longer exists to the root, `walk()` caps its recursion at `MAX_FOLDER_DEPTH` so a `parentId`
+cycle cannot hang a render, and both `getFolders()` and `getDecks()` append whatever the walk could
+not reach rather than dropping it. A 1.0.x world has none of these fields at all and is read as-is:
+**there is no migration pass, and adding one would be a step backwards** — read-time normalisation
+means there is no such thing as a half-migrated blob.
+
+`sort` is a plain 0-based index within its own **(parent, kind)** sibling run, renumbered after
+every structural change. Folders always sort above decks in the same parent, per Foundry's own
+sidebar, which is why the two kinds keep separate runs and why an anchor of the wrong kind degrades
+to alphabetical in `moveEntry()`. Alphabetical placement is what a *newly created* deck or folder
+gets and nothing more — **renaming must never re-file anything**, or the order the GM arranged by
+hand is destroyed by an edit they made for another reason.
+
+**A deck count is a count of adversaries that still resolve — never `uuids.length`.** A deck keeps
+the UUID of a deleted actor on purpose (`resolveAdversary` returns null and leaves it in place, so
+re-enabling a compendium restores the deck), which makes the stored list a record of intent rather
+than an inventory. Rendering the raw length is what made the editor's badge disagree with the pane
+beside it and never come back down after a deletion. `resolvedCounts()` is the one place this is
+computed; it resolves the union of every deck's UUIDs once and is served from the hydration cache
+after the first call. `updateActor`/`deleteActor` must therefore invalidate that cache and refresh
+**both** windows, not just the editor — the builder's picker shows the same numbers.
+
 **Cross-window refresh goes through a setting's `onChange`, not through the caller.** The two
 windows look at overlapping state — creating a deck in the editor changes the builder's deck
 picker, re-pricing a type changes its BP readout — and ApplicationV2 does not react to settings on
@@ -191,16 +239,34 @@ settings write per keystroke would be absurd. `#bindDeckSearch` restores both th
 focus after the re-render that adding a deck triggers, and suppresses `pointerdown` on the droplist
 so clicking an option does not blur the input and close the list before the click lands.
 
+**The Deck Editor's rail is a tree rendered flat.** `deckTreeRows()` returns folders and decks
+already interleaved in tree order with an indentation `depth`, and the template renders one `<ul>`
+of siblings indented by `--rdbd-depth`. That is what lets a drop be decided from a single
+`getBoundingClientRect()` on whatever row the pointer is over — outer quarters of a folder row
+reorder, the middle half files into it, a deck row splits in two. A nested `<ul>` would need a
+recursive partial and hit-testing through the nesting for nothing. Only `.rdbd-drag-handle` is
+draggable, because making the whole row draggable fights the click-to-select on its own button, and
+`dragend` (bound by hand in `_onRender` — `DragDrop` has no callback for it) is what clears the
+drop indicator, since it is the only event that fires however a drag ends.
+
+Both reorder drags and adversary drops land in the same `#onDrop`, told apart by the `type` in
+their payload (`MOVE_DRAG_TYPE` vs `Actor`). `dragover` cannot read `dataTransfer`, which is why
+the in-flight drag is also held in `#dragging`.
+
 **The three builder columns are all `<fieldset>`s.** Decks, Modifiers and the Battle Points summary
 share border, padding and first-baseline purely by being the same element with a `<legend>`. If the
 summary is ever turned back into a `<section>` with a heading, it will sit a few pixels off from its
 neighbours again. Modifier rows are stacked (label above control, control at `width: 100%`) for the
 same reason: in a ~250px column, side-by-side gave every dropdown a different width.
 
-**Object-shaped settings are stored as arrays.** Both `decks` and `typeCosts` are
+**Object-shaped settings are stored as arrays.** `decks`, `deckFolders` and `typeCosts` are all
 `ArrayField(ObjectField)` rather than keyed objects, because writing a setting merges plain objects
 (`foundry.utils.mergeObject` recurses into them) but replaces arrays wholesale. An array is the
 only shape a key can actually be *removed* from.
+
+**DialogV2 content is not inside `.rdbd-app`.** The module's palette is declared on `.rdbd-app,
+.rdbd-dialog` for that reason, and any dialog markup this module builds must wrap itself in
+`.rdbd-dialog` or every `--rdbd-*` in it resolves to nothing.
 
 ## Foundry v14 gotchas encountered here
 

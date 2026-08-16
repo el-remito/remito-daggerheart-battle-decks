@@ -7,19 +7,28 @@
     <aside class="rdbd-deck-list">
         <header class="rdbd-pane-header">
             <h3>{{localize "RDBD.DeckEditor.decks"}}</h3>
-            <button type="button" data-action="createDeck">
-                <i class="fa-solid fa-plus"></i>
-                {{localize "RDBD.DeckEditor.newDeck"}}
-            </button>
+            <div class="rdbd-pane-actions">
+                <button type="button" class="rdbd-badge" data-action="createFolder"
+                        data-tooltip="{{localize 'RDBD.DeckEditor.newFolder'}}"
+                        aria-label="{{localize 'RDBD.DeckEditor.newFolder'}}">
+                    <i class="fa-solid fa-folder-plus"></i>
+                </button>
+                <button type="button" data-action="createDeck">
+                    <i class="fa-solid fa-plus"></i>
+                    {{localize "RDBD.DeckEditor.newDeck"}}
+                </button>
+            </div>
         </header>
 
-        {{#if decks.length}}
-            <ul class="rdbd-decks">
-                {{#each decks}}{{> rdbdDeckRow}}{{/each}}
-            </ul>
-        {{else}}
+        {{!-- Always rendered, even when empty: it is the drop target that means "move to the top
+              level", and a drag has to have somewhere to land. --}}
+        <ul class="rdbd-decks">
+            {{#each rows}}{{> rdbdDeckRow}}{{/each}}
+        </ul>
+
+        {{#unless hasRows}}
             <p class="rdbd-empty">{{localize "RDBD.DeckEditor.noDecks"}}</p>
-        {{/if}}
+        {{/unless}}
     </aside>
 
     <section class="rdbd-deck-contents">
@@ -29,10 +38,31 @@
                 <span class="rdbd-tag">{{adversaries.length}} {{localize "RDBD.DeckEditor.adversaries"}}</span>
             </header>
 
+            {{#if selectedPath}}
+                <p class="rdbd-deck-path">
+                    <i class="fa-solid fa-folder-open"></i> {{selectedPath}}
+                </p>
+            {{/if}}
+
+            {{#if selectedTags.length}}
+                <p class="rdbd-tag-row">
+                    {{#each selectedTags}}<span class="rdbd-tag rdbd-tag-meta">{{this}}</span>{{/each}}
+                </p>
+            {{/if}}
+
             <p class="rdbd-hint">
                 <i class="fa-solid fa-hand-pointer"></i>
                 {{localize "RDBD.DeckEditor.dropHint"}}
             </p>
+
+            {{#if missing}}
+                {{!-- The UUIDs are kept on purpose so a re-enabled compendium restores the deck.
+                      Saying so is what stops the count looking broken. --}}
+                <p class="rdbd-warning">
+                    <i class="fa-solid fa-link-slash"></i>
+                    {{localize "RDBD.DeckEditor.missing" count=missing}}
+                </p>
+            {{/if}}
 
             {{#if adversaries.length}}
                 <ul class="rdbd-adversary-list">

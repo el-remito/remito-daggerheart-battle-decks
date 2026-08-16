@@ -1,19 +1,65 @@
-{{!-- One deck in the Deck Editor's left rail. --}}
-<li class="rdbd-deck-row {{#if selected}}rdbd-selected{{/if}}" data-deck-id="{{id}}">
+{{!--
+    One row of the Deck Editor's rail — a folder or a deck, told apart by `kind`.
+
+    Rendered flat with `--rdbd-depth` supplying the indent, so every row is a DOM sibling and the
+    reorder drop can be decided from one bounding rect. See DeckEditor#dropTarget.
+--}}
+<li class="rdbd-tree-row rdbd-{{kind}}-row {{#if selected}}rdbd-selected{{/if}}"
+    data-kind="{{kind}}" data-id="{{id}}" style="--rdbd-depth: {{depth}}">
+
+    {{!-- Only the grip starts a drag; the row's own button has to stay clickable. --}}
+    <span class="rdbd-drag-handle" data-kind="{{kind}}" data-id="{{id}}"
+          data-tooltip="{{localize 'RDBD.DeckEditor.dragHint'}}"
+          aria-label="{{localize 'RDBD.DeckEditor.dragHint'}}">
+        <i class="fa-solid fa-grip-vertical"></i>
+    </span>
+
     {{!-- The tooltip carries the full name, because a long one is truncated below. --}}
-    <button type="button" class="rdbd-deck-name plain" data-action="selectDeck" data-deck-id="{{id}}"
+    <button type="button" class="rdbd-deck-name plain" data-id="{{id}}" data-kind="{{kind}}"
+            data-action="{{#if isFolder}}toggleFolder{{else}}selectDeck{{/if}}"
             data-tooltip="{{name}}">
-        <i class="fa-solid fa-cards-blank"></i>
-        <span class="rdbd-deck-label">{{name}}</span>
-        <span class="rdbd-deck-count">{{count}}</span>
+        {{#if isFolder}}
+            <i class="fa-solid {{#if collapsed}}fa-folder{{else}}fa-folder-open{{/if}}"></i>
+        {{else}}
+            <i class="fa-solid fa-cards-blank"></i>
+        {{/if}}
+
+        <span class="rdbd-tree-text">
+            <span class="rdbd-deck-label">{{name}}</span>
+            {{#if hasTags}}
+                <span class="rdbd-tag-row">
+                    {{#each tags}}<span class="rdbd-tag rdbd-tag-meta">{{this}}</span>{{/each}}
+                </span>
+            {{/if}}
+        </span>
+
+        {{!-- Decks count adversaries that still resolve; folders count the decks inside them. --}}
+        <span class="rdbd-deck-count"
+              data-tooltip="{{#if isFolder}}{{localize 'RDBD.DeckEditor.folderCount'}}{{else}}{{localize 'RDBD.DeckEditor.deckCount'}}{{/if}}">
+            {{count}}
+        </span>
     </button>
+
     <div class="rdbd-deck-controls">
-        <button type="button" class="rdbd-badge" data-action="renameDeck" data-deck-id="{{id}}"
-                data-tooltip="{{localize 'RDBD.DeckEditor.rename'}}"
-                aria-label="{{localize 'RDBD.DeckEditor.rename'}}">
+        {{#if isFolder}}
+            <button type="button" class="rdbd-badge" data-action="createFolder" data-folder-id="{{id}}"
+                    data-tooltip="{{localize 'RDBD.DeckEditor.newSubfolder'}}"
+                    aria-label="{{localize 'RDBD.DeckEditor.newSubfolder'}}">
+                <i class="fa-solid fa-folder-plus"></i>
+            </button>
+            <button type="button" class="rdbd-badge" data-action="createDeck" data-folder-id="{{id}}"
+                    data-tooltip="{{localize 'RDBD.DeckEditor.newDeckHere'}}"
+                    aria-label="{{localize 'RDBD.DeckEditor.newDeckHere'}}">
+                <i class="fa-solid fa-plus"></i>
+            </button>
+        {{/if}}
+        <button type="button" class="rdbd-badge" data-action="editEntry" data-id="{{id}}" data-kind="{{kind}}"
+                data-tooltip="{{localize 'RDBD.DeckEditor.edit'}}"
+                aria-label="{{localize 'RDBD.DeckEditor.edit'}}">
             <i class="fa-solid fa-pen"></i>
         </button>
-        <button type="button" class="rdbd-badge rdbd-badge-danger" data-action="deleteDeck" data-deck-id="{{id}}"
+        <button type="button" class="rdbd-badge rdbd-badge-danger" data-action="deleteEntry"
+                data-id="{{id}}" data-kind="{{kind}}"
                 data-tooltip="{{localize 'RDBD.DeckEditor.delete'}}"
                 aria-label="{{localize 'RDBD.DeckEditor.delete'}}">
             <i class="fa-solid fa-trash"></i>

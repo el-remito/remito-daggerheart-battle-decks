@@ -32,6 +32,9 @@ Foundry **v14**, Daggerheart system **2.7+**. GM-only.
   told to follow an official type's rules. See *Settings* below.
 - **Any type can be ignored** — switched off for generation without being removed from a deck, for
   the roles you never want rolled into a fight.
+- **Folders and tags** — nest decks into folders as deep as you like, tag folders and decks with
+  whatever labels suit your table (`demons`, `oshain`, `criminals`), and drag anything anywhere.
+  Tags are searchable from the encounter builder's deck picker.
 
 ## Installation
 
@@ -46,14 +49,43 @@ https://raw.githubusercontent.com/el-remito/remito-daggerheart-battle-decks/main
 1. Open the **Actors** sidebar tab and click **Battle Encounters**. Set your party's tier and size
    at the top of the window — they stick, so this is a first-run job.
 2. Click the gear beside *Decks* to open the **Deck Editor**. Create a deck and drag adversaries
-   into it. Only `adversary` actors are accepted, and a deck will not take the same adversary twice.
+   into it — onto the deck's row in the rail, or anywhere in the pane on the right. Only
+   `adversary` actors are accepted, and a deck will not take the same adversary twice.
+   See *Organising decks* below for folders, tags and reordering.
 3. Back in the builder, add the decks to draw from: type in the *Decks* search box and click a
    result. Chosen decks collect in the list underneath, each with an ✕ to drop it again. Set the
    modifiers and hit **Generate**. Leave *Target BP* blank to use the budget shown in the field —
    the baseline plus your modifiers.
-4. Click a card to open its sheet; drag it onto the canvas to place tokens. Placed cards grey out.
+4. Generating folds the setup away so the roster has the window to itself; the arrow beside
+   *Encounter Setup* brings it back. Click a card to open its sheet; drag it onto the canvas to
+   place tokens. Placed cards grey out.
 5. **Accept** locks the roster so it cannot drift; the cards stay draggable and the encounter is
    restored the next time you open the window.
+
+## Organising decks
+
+Once there are more than a handful of decks, the Deck Editor's rail is a tree.
+
+**Folders** nest as deep as you want. *New Folder* in the header makes one at the top level; the
+buttons on a folder's own row make a subfolder or a deck inside it. Deleting a folder asks what you
+meant: *Delete Folder Only* keeps everything inside it and lifts it up one level, and the other
+button says exactly how many decks it is about to take with it.
+
+**Tags** are short labels on a folder or a deck — `demons`, `oshain`, `criminals` — shown under its
+name. Set them with the pencil button, comma-separated. They are not just decoration: the Battle
+Encounters deck picker searches names, tags and folder names together, so typing `criminals` finds
+every deck you filed that way.
+
+**Order.** A new deck or folder files itself alphabetically among its siblings. After that the
+order is yours: grab the handle on the left of a row and drag. Dropping near the top or bottom edge
+of a row puts the dragged item above or below it; dropping in the middle of a *folder* puts it
+inside; dropping on the empty space below the list moves it back to the top level. Folders always
+sit above decks within the same parent, and renaming something never re-files it — alphabetical is
+where things start, not a rule they are held to.
+
+Deck counts are of adversaries that still resolve. If you delete an adversary's actor, its entry
+stays in the deck — so re-enabling a compendium restores the deck intact — but it stops being
+counted and stops being drawn, and the deck's pane says how many such entries it holds.
 
 ## Settings
 
@@ -61,7 +93,18 @@ https://raw.githubusercontent.com/el-remito/remito-daggerheart-battle-decks/main
 is the only place they exist, and it remembers whatever you last typed, so they carry over from
 one encounter to the next without being configured in two places.
 
-The one entry in *Game Settings → Configure Settings* is **Adversary BP Costs**.
+*Game Settings → Configure Settings* holds two entries: the **Adversary BP Costs** menu, and one
+checkbox.
+
+### Collapse setup after generating
+
+On by default. Generating an encounter folds the *Decks*, *Modifiers* and *Battle Points* panels
+away so the roster fills the window — the arrow beside **Encounter Setup** opens them again, and
+the party fields and the **Generate** button never move either way. While folded, the setup bar
+still shows how many decks are in play and what the budget came to.
+
+Turn it off if you would rather the panels stayed put. It is a per-user preference, so two GMs at
+the same table do not share it.
 
 ### Adversary BP Costs
 
@@ -132,6 +175,25 @@ game.modules.get("remito-daggerheart-battle-decks").api.selfTest()
 ```
 
 ## Changelog
+
+### 1.1.0
+
+- **Collapsible encounter setup.** The Decks / Modifiers / Battle Points block folds away behind an
+  arrow, handing its space to the roster. Generating folds it automatically — configurable in
+  Game Settings — while the party fields and the Generate button stay where they are. The budget
+  and deck count ride along on the collapsed bar so nothing is lost behind the fold.
+- **Folders.** Decks nest into folders, folders into folders. Created, renamed and deleted from the
+  Deck Editor; deleting one offers to keep its contents or take them with it.
+- **Tags** on folders and decks, shown beneath the name and searchable — along with folder names —
+  from the Battle Encounters deck picker.
+- **Ordering.** New decks and folders file themselves alphabetically among their siblings; after
+  that, drag the handle to put them wherever you like. Folders sort above decks within a parent.
+- **Wider deck rail** in the editor, and it now grows with the window instead of stopping at 240px,
+  so deck names are readable rather than clipped after twelve characters.
+- **Fixed:** deck counts were of stored entries rather than of adversaries that still exist, so
+  deleting an adversary left the badge stuck at its old number and every later addition
+  compounded the error. Counts are now of what actually resolves, in both the editor and the
+  builder's deck picker, and a deck holding entries whose actors are gone says so.
 
 ### 1.0.1
 

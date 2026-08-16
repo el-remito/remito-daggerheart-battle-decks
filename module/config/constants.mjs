@@ -23,9 +23,23 @@ export const ADVERSARY_TYPE = 'adversary';
  */
 export const SETTINGS = {
     DECKS: 'decks',
+    DECK_FOLDERS: 'deckFolders',
     ENCOUNTER: 'encounter',
-    TYPE_COSTS: 'typeCosts'
+    TYPE_COSTS: 'typeCosts',
+    AUTO_COLLAPSE: 'autoCollapseSetup'
 };
+
+/**
+ * How deep the folder tree may nest. Not a design limit so much as a cycle guard: a corrupt
+ * `parentId` chain would otherwise recurse forever while flattening the tree for rendering.
+ */
+export const MAX_FOLDER_DEPTH = 12;
+
+/**
+ * `type` carried by the Deck Editor's own reorder drags, distinguishing them from the
+ * `{ type: "Actor" }` payload the sidebar and compendiums emit. Both land in the same drop handler.
+ */
+export const MOVE_DRAG_TYPE = 'rdbd-move';
 
 /** Settings-tab submenus. The only entry this module puts in Game Settings. */
 export const MENUS = {
