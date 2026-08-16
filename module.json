@@ -2,7 +2,7 @@
     "id": "remito-daggerheart-battle-decks",
     "title": "Remito's Battle Decks",
     "description": "Build named decks of Daggerheart adversaries and roll random battle encounters from them, sized by the Valiran Battle Points system. GM-only.",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "authors": [
         { "name": "remito" }
     ],

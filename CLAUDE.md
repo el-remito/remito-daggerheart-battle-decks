@@ -269,6 +269,27 @@ only shape a key can actually be *removed* from.
 `.rdbd-dialog` or every `--rdbd-*` in it resolves to nothing. `.rdbd-info-badge` is scoped to both
 roots for the same reason — it appears in the deck editor's edit dialog.
 
+**`effectiveTypes()` is memoized, and the generator depends on that for its speed.** `baseCost()`
+reads the merged type table, and `fillBudget()`'s affordability check calls `baseCost()` once per
+encounter line, per pool candidate, per draw iteration — O(iterations x pool x roster). Rebuilding
+the table per call (which included a `game.settings.get`) measured **1.8 seconds** for one Generate
+over a 240-adversary pool, against 46ms memoized: a 15-39x speedup across every configuration
+tested. If a future change makes the table rebuild per call again, the module gets slow in exactly
+the way that is hard to attribute, because nothing errors.
+
+The table is frozen as well as cached, since it is now shared rather than rebuilt per caller. Every
+caller today maps or filters into fresh objects; the freeze is what stops a future one from
+assigning into the shared table and corrupting every cost until the next invalidation.
+
+Two things invalidate it: this module's TYPE_COSTS `onChange`, and an `updateSetting` hook in
+`battle-decks.mjs` that catches changes to the *system's* homebrew adversary types. Both are needed
+— the second has no onChange of ours to hang off.
+
+The draw is still O(iterations x pool x roster) and `affords()` still copies the roster per
+candidate. That is deliberate: after memoization the worst configuration measured 46ms, which is
+imperceptible, and unpicking it would mean maintaining the two composition-driven modifiers
+incrementally — real risk to the BP maths for no felt gain. Re-measure before optimizing further.
+
 **A frozen card is frozen against the pool, not just against the card list.** `state.lockedCards`
 holds card keys. Carrying those cards through a redraw is the easy half; the half that is easy to
 lose is that *every draw path must also remove their keys from the pool* — `generate`, `drawOne`

@@ -26,6 +26,13 @@ Hooks.once('init', () => {
     registerCanvasDrop();
     registerDeckEditorHooks();
 
+    // The merged adversary type table is memoized (config/adversary-types.mjs) because it sits in
+    // the generator's innermost loop. Its own setting drops the cache from that setting's onChange;
+    // this catches the other input — the *system's* homebrew adversary types, which a GM edits
+    // through Daggerheart's own settings and which this module has no onChange of its own for.
+    // Deliberately unfiltered: dropping a memo is far cheaper than working out whose setting it was.
+    Hooks.on('updateSetting', () => AdversaryTypes.invalidateTypeCache());
+
     // Object form registers each template as a named partial, which is how the .hbs files
     // reference them ({{> rdbdAdversaryCard}} and friends).
     foundry.applications.handlebars.loadTemplates({

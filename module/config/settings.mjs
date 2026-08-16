@@ -17,6 +17,7 @@ import { MODULE_ID, NS, SETTINGS, MENUS } from './constants.mjs';
 import { TypeCostEditor } from '../apps/type-costs.mjs';
 import { refreshOpenWindows } from '../ui/refresh.mjs';
 import { invalidateCache } from '../data/decks.mjs';
+import { invalidateTypeCache } from './adversary-types.mjs';
 
 const fields = foundry.data.fields;
 
@@ -69,7 +70,13 @@ export function registerSettings() {
         config: false,
         type: new fields.ArrayField(new fields.ObjectField()),
         default: [],
-        onChange: refreshOpenWindows
+        onChange: () => {
+            // The merged type table is memoized (see config/adversary-types.mjs). This setting is
+            // one of the two things that can change it, so it must be dropped here or every cost
+            // in the module stays at its previous value until the world reloads.
+            invalidateTypeCache();
+            refreshOpenWindows();
+        }
     });
 
     // The one checkbox this module puts in the Settings tab.

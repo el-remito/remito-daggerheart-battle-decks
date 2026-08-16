@@ -202,6 +202,15 @@ game.modules.get("remito-daggerheart-battle-decks").api.selfTest()
 
 ## Changelog
 
+### 1.2.1
+
+- **Fixed: Generate and Re-roll could hang the window for seconds.** The adversary type table was
+  rebuilt from scratch — including a settings read — on every single cost lookup, and the draw
+  looks up a cost for every adversary in the encounter, for every candidate in the pool, on every
+  iteration. Drawing from a large pool did that tens of thousands of times per click. The table is
+  now built once and reused, which measured 15-39x faster across every configuration tested and
+  took the worst case from 1.8 seconds to under 50ms. Nothing about the results changes.
+
 ### 1.2.0
 
 - **Freeze an adversary.** A padlock on each card pins it: Generate, Re-roll All and Reset all

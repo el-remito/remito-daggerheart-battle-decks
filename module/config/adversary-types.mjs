@@ -93,9 +93,46 @@ export function costOverrides() {
  *   alias      - the official type this homebrew type is treated as, or null
  *   rulesType  - alias ?? id; what the rules should match on
  *
+ * CACHED, and it has to be. This is the hottest function in the module by a wide margin: every
+ * `baseCost()` call rebuilds the whole table, and `baseCost()` is called once per encounter line
+ * per candidate per draw iteration from generator.mjs's affordability check. A 38-adversary roster
+ * measured ~37,000 rebuilds for a single Generate — each one re-reading the TYPE_COSTS world
+ * setting, which in Foundry means re-initializing an ArrayField(ObjectField) rather than the cheap
+ * clone an offline harness sees. That is the multi-second freeze the GM reported after v1.2.0 added
+ * frozen cards (a frozen card sits in the roster for the whole loop, so it lengthens every one of
+ * those passes, which is what pushed an already-quadratic cost over the perceptible line).
+ *
+ * Invalidated by {@link invalidateTypeCache}: from the TYPE_COSTS onChange in config/settings.mjs,
+ * and from an `updateSetting` hook so that a change to the *system's* homebrew adversary types is
+ * picked up too. Anything that can change a cost must go through one of those.
+ *
  * @returns {object} Type id -> effective type definition.
  */
 export function effectiveTypes() {
+    if (typeCache) return typeCache;
+
+    // Frozen because it is now shared rather than rebuilt per call. Every caller today only reads
+    // it — they map and filter into fresh objects — but a future one that assigns into it would
+    // otherwise corrupt every cost in the module until the next invalidation, from a line that
+    // looked local. Modules are strict mode, so a stray write throws instead.
+    const built = buildTypes();
+    for (const type of Object.values(built)) Object.freeze(type);
+    return (typeCache = Object.freeze(built));
+}
+
+/**
+ * Drop the memoized type table. Cheap, and safe to call more often than strictly needed — the next
+ * read simply rebuilds. See {@link effectiveTypes}.
+ */
+export function invalidateTypeCache() {
+    typeCache = null;
+}
+
+/** @type {object|null} */
+let typeCache = null;
+
+/** The uncached build. Only {@link effectiveTypes} should call this. */
+function buildTypes() {
     const system = systemTypes();
     const core = coreTypes();
     const overrides = costOverrides();
