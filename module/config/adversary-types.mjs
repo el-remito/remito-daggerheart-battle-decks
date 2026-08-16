@@ -29,9 +29,16 @@
  * across is `partyAmountPerBP`, because "one BP buys a whole group" is the substance of being a
  * Minion rather than a statement about price.
  *
- * Overrides are stored as an ARRAY of { id, bpCost, partyAmountPerBP, alias } rather than a keyed
- * object, because foundry.utils.mergeObject recurses into plain objects when a setting is written
- * but replaces arrays wholesale. An array is the only shape a key can actually be removed from.
+ * IGNORING A TYPE. A type can be marked `ignored`, which takes it out of every draw pool without
+ * removing anything from a deck. That is the difference between "I never want this rolled" and "I
+ * do not own this" — an ignored adversary stays in its deck, keeps its cost, and is simply never
+ * offered. It also stops counting as a problem: an ignored type that has no cost is not going to
+ * corrupt a budget it can never appear in, so it is not reported as unpriced.
+ *
+ * Overrides are stored as an ARRAY of { id, bpCost, partyAmountPerBP, alias, ignored } rather than
+ * a keyed object, because foundry.utils.mergeObject recurses into plain objects when a setting is
+ * written but replaces arrays wholesale. An array is the only shape a key can actually be removed
+ * from.
  */
 
 import { MODULE_ID, SETTINGS } from './constants.mjs';
@@ -58,7 +65,7 @@ export function systemTypes() {
  * Guarded because bp.mjs is deliberately runnable outside Foundry (see its self-test): with no
  * `game` in scope there are simply no overrides, and every built-in cost still resolves.
  *
- * @returns {object} Type id -> { bpCost?, partyAmountPerBP? }.
+ * @returns {object} Type id -> { bpCost?, partyAmountPerBP?, alias?, ignored? }.
  */
 export function costOverrides() {
     let stored;
@@ -81,7 +88,8 @@ export function costOverrides() {
  * Each entry carries the system's own fields plus ours:
  *   homebrew   - the GM added this type; the system has no cost for it
  *   priced     - a usable bpCost was resolved; an alias never provides one
- *   overridden - this module's setting supplied the cost, the grouping flag or the alias
+ *   ignored    - never offered to the generator, though decks may still contain it
+ *   overridden - this module's setting supplied the cost, the grouping flag, the alias or ignore
  *   alias      - the official type this homebrew type is treated as, or null
  *   rulesType  - alias ?? id; what the rules should match on
  *
@@ -129,6 +137,9 @@ export function effectiveTypes() {
             alias,
             rulesType: alias ?? id,
             priced: Number.isFinite(cost),
+            // Never inherited from an alias: whether a type is worth rolling is the GM's call
+            // about their own table, not something "behaves like a Bruiser" has an opinion on.
+            ignored: override?.ignored === true,
             overridden: Boolean(override)
         };
     }
@@ -164,6 +175,20 @@ export function isPriced(type) {
 }
 
 /**
+ * Has this type been switched off for encounter generation?
+ *
+ * Ignoring is a draw-pool filter, nothing more. An ignored adversary can still sit in a deck, still
+ * costs whatever it costs, and an encounter that already contains one keeps it — it is simply never
+ * picked again.
+ *
+ * @param {string} type Adversary type id.
+ * @returns {boolean}
+ */
+export function isIgnored(type) {
+    return effectiveTypes()[type]?.ignored === true;
+}
+
+/**
  * Localized label for a type, falling back to the raw id for a type that no longer exists
  * (a homebrew type the GM deleted while it was still sitting in a deck).
  *
@@ -176,11 +201,15 @@ export function typeLabel(type) {
 }
 
 /**
- * Every type that still has no cost, for the warnings the builder and the cost editor show.
+ * Every type that still has no cost AND can still turn up in an encounter.
+ *
+ * An ignored type is left out: it will never be drawn, so its missing cost cannot corrupt a budget
+ * and nagging about it would only train the GM to ignore the warning.
+ *
  * @returns {Array<{id: string, label: string}>}
  */
 export function unpricedTypes() {
     return Object.values(effectiveTypes())
-        .filter(type => !type.priced)
+        .filter(type => !type.priced && !type.ignored)
         .map(type => ({ id: type.id, label: typeLabel(type.id) }));
 }

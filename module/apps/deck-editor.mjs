@@ -6,7 +6,7 @@
  */
 
 import { NS, TEMPLATES, APP_IDS } from '../config/constants.mjs';
-import { typeLabel, isPriced } from '../config/adversary-types.mjs';
+import { typeLabel, isPriced, isIgnored } from '../config/adversary-types.mjs';
 import * as Decks from '../data/decks.mjs';
 import { baseCost } from '../helpers/bp.mjs';
 
@@ -74,14 +74,21 @@ export class DeckEditor extends HandlebarsApplicationMixin(ApplicationV2) {
             })),
             selectedId: this.#selectedId,
             selectedDeck: decks.find(deck => deck.id === this.#selectedId) ?? null,
-            adversaries: adversaries.map(adversary => ({
-                ...adversary,
-                typeLabel: typeLabel(adversary.type),
-                // A homebrew type with no cost configured yet; the row says so rather than
-                // showing a confident "0 BP".
-                unpriced: !isPriced(adversary.type),
-                baseCost: baseCost(adversary.type)
-            }))
+            adversaries: adversaries.map(adversary => {
+                // A deck is allowed to hold an adversary of an ignored type — that is the point of
+                // the flag — but the row has to say so, or the GM is left wondering why this one
+                // never turns up in a roster.
+                const ignored = isIgnored(adversary.type);
+                return {
+                    ...adversary,
+                    typeLabel: typeLabel(adversary.type),
+                    ignored,
+                    // A homebrew type with no cost configured yet; the row says so rather than
+                    // showing a confident "0 BP". Moot for a type that can never be drawn.
+                    unpriced: !isPriced(adversary.type) && !ignored,
+                    baseCost: baseCost(adversary.type)
+                };
+            })
         };
     }
 

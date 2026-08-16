@@ -65,8 +65,26 @@ function blankState() {
     };
 }
 
-/** How many rows the deck multi-select shows before it starts scrolling. */
-const DECK_SELECT_ROWS = { min: 3, max: 8 };
+/**
+ * Loose subsequence match, the sort of thing a search box is expected to do: "bnd" finds "Bandits"
+ * and "gob c" finds "Goblin Camp". Whitespace in the query is dropped so a typed space never stops
+ * a match, while the deck name keeps its own spaces so word boundaries still count.
+ *
+ * @param {string} query Lower-cased search text.
+ * @param {string} text  Lower-cased deck name.
+ * @returns {boolean}
+ */
+function fuzzyMatch(query, text) {
+    const needle = query.replace(/\s+/g, '');
+    if (!needle) return true;
+
+    let i = 0;
+    for (const character of text) {
+        if (character === needle[i]) i += 1;
+        if (i === needle.length) return true;
+    }
+    return false;
+}
 
 export class EncounterBuilder extends HandlebarsApplicationMixin(ApplicationV2) {
     static DEFAULT_OPTIONS = {
@@ -93,6 +111,8 @@ export class EncounterBuilder extends HandlebarsApplicationMixin(ApplicationV2) 
             rerollCard: EncounterBuilder.#onRerollCard,
             putBack: EncounterBuilder.#onPutBack,
             openCard: EncounterBuilder.#onOpenCard,
+            addDeck: EncounterBuilder.#onAddDeck,
+            removeDeck: EncounterBuilder.#onRemoveDeck,
             openDecks: EncounterBuilder.#onOpenDecks,
             openCosts: EncounterBuilder.#onOpenCosts
         }
@@ -102,6 +122,17 @@ export class EncounterBuilder extends HandlebarsApplicationMixin(ApplicationV2) 
 
     /** @type {foundry.applications.ux.DragDrop|null} */
     #dragDrop = null;
+
+    /**
+     * Deck search text. Deliberately transient view state rather than part of the encounter: it
+     * says nothing about the fight, and a filter left over from last session would be baffling.
+     * Held on the instance so it survives the re-render that adding a deck triggers.
+     * @type {string}
+     */
+    #deckFilter = '';
+
+    /** Whether the search box had focus when the last render started, so it can be given back. */
+    #deckFocused = false;
 
     /** @override */
     render(options) {
@@ -115,7 +146,15 @@ export class EncounterBuilder extends HandlebarsApplicationMixin(ApplicationV2) 
     /** @returns {object} The persisted encounter state, backfilled with any missing keys. */
     get state() {
         const stored = game.settings.get(MODULE_ID, SETTINGS.ENCOUNTER);
-        return foundry.utils.mergeObject(blankState(), stored ?? {}, { inplace: false });
+        const state = foundry.utils.mergeObject(blankState(), stored ?? {}, { inplace: false });
+
+        // A deck deleted while it was being drawn from leaves its id behind here. Drop it on read,
+        // not on write: every consumer — the chip list, the deckless check, Generate — then agrees
+        // on what is selected, and the next #update persists the pruned list on its own. The old
+        // multi-select got this for free, because it only ever submitted decks it had rendered.
+        const decks = Decks.getDecks();
+        state.deckIds = (state.deckIds ?? []).filter(id => decks.some(deck => deck.id === id));
+        return state;
     }
 
     /**
@@ -163,50 +202,65 @@ export class EncounterBuilder extends HandlebarsApplicationMixin(ApplicationV2) 
      * composition-driven rows are always shown: their counts explain the roster even when the
      * modifier itself is 0, which is exactly when a GM wants to know why.
      *
+     * Each row carries two names. `short` is what renders — three words at most, because the panel
+     * is one narrow column and the sheet's own phrasings ("No Bruisers, Hordes, Leaders or Solos?")
+     * simply do not fit. `label` is the full wording, hung off the row as a tooltip so the
+     * spreadsheet's exact question is still reachable.
+     *
      * @param {object} state  Encounter state.
      * @param {object} budget Output of computeBudget().
-     * @returns {object[]} { label, detail, value, derived } rows.
+     * @returns {object[]} { label, short, detail, value, derived } rows.
      */
     #modifierRows(state, budget) {
         const rows = [];
         const label = key => game.i18n.localize(`${NS}.Modifier.${key}.label`);
+        // Falls back to the full label if a translation has not supplied a short form yet — a
+        // clipped row beats a missing one.
+        const short = key => {
+            const shortKey = `${NS}.Modifier.${key}.short`;
+            return game.i18n.has?.(shortKey) ? game.i18n.localize(shortKey) : label(key);
+        };
+        const row = (key, detail, value, derived) => ({
+            label: label(key),
+            short: short(key),
+            detail,
+            value,
+            derived
+        });
 
-        for (const row of SELECT_MODIFIERS) {
-            const value = budget.gm[row.key];
+        for (const modifier of SELECT_MODIFIERS) {
+            const value = budget.gm[modifier.key];
             if (!value) continue;
-            rows.push({
-                label: label(row.key),
-                detail: game.i18n.localize(`${NS}.Modifier.${row.key}.${state.modifiers[row.key]}`),
-                value,
-                derived: false
-            });
+            const chosen = game.i18n.localize(
+                `${NS}.Modifier.${modifier.key}.${state.modifiers[modifier.key]}`
+            );
+            rows.push(row(modifier.key, chosen, value, false));
         }
 
         if (budget.gm.extraDamage) {
-            rows.push({
-                label: label('extraDamage'),
-                detail: `+${state.modifiers.extraDamageDice}d4`,
-                value: budget.gm.extraDamage,
-                derived: false
-            });
+            rows.push(
+                row('extraDamage', `+${state.modifiers.extraDamageDice}d4`, budget.gm.extraDamage, false)
+            );
         }
 
-        if (budget.gm.adHoc) {
-            rows.push({ label: label('adHoc'), detail: '', value: budget.gm.adHoc, derived: false });
-        }
+        if (budget.gm.adHoc) rows.push(row('adHoc', '', budget.gm.adHoc, false));
 
-        rows.push({
-            label: label('manySolos'),
-            detail: `${game.i18n.localize(`${NS}.Summary.totalSolos`)}: ${budget.derived.soloCount}`,
-            value: budget.derived.manySolos,
-            derived: true
-        });
-        rows.push({
-            label: label('noToughies'),
-            detail: `${game.i18n.localize(`${NS}.Summary.validCounts`)}: ${budget.derived.toughieCount}`,
-            value: budget.derived.noToughies,
-            derived: true
-        });
+        rows.push(
+            row(
+                'manySolos',
+                `${game.i18n.localize(`${NS}.Summary.totalSolos`)}: ${budget.derived.soloCount}`,
+                budget.derived.manySolos,
+                true
+            )
+        );
+        rows.push(
+            row(
+                'noToughies',
+                `${game.i18n.localize(`${NS}.Summary.validCounts`)}: ${budget.derived.toughieCount}`,
+                budget.derived.noToughies,
+                true
+            )
+        );
 
         return rows;
     }
@@ -217,6 +271,16 @@ export class EncounterBuilder extends HandlebarsApplicationMixin(ApplicationV2) 
         const budget = budgetFor(state);
         const decks = Decks.getDecks();
         const spawned = state.spawned ?? [];
+
+        const deckRows = decks.map(deck => ({
+            id: deck.id,
+            name: deck.name,
+            count: deck.uuids.length,
+            selected: state.deckIds.includes(deck.id),
+            // Pre-lowered here so the keystroke handler in #filterDeckOptions does no work per row
+            // beyond the comparison itself.
+            search: deck.name.toLowerCase()
+        }));
 
         return {
             state,
@@ -233,17 +297,17 @@ export class EncounterBuilder extends HandlebarsApplicationMixin(ApplicationV2) 
             deckless: !state.deckIds.length,
             hasCards: (state.cards ?? []).length > 0,
 
-            decks: decks.map(deck => ({
-                ...deck,
-                count: deck.uuids.length,
-                selected: state.deckIds.includes(deck.id)
-            })),
+            decks: deckRows,
             hasDecks: decks.length > 0,
-            // Grow with the catalogue up to a point, then scroll.
-            deckSelectSize: Math.min(
-                Math.max(decks.length, DECK_SELECT_ROWS.min),
-                DECK_SELECT_ROWS.max
-            ),
+            // The droplist offers only what is not already in play, so adding a deck twice is not
+            // a state the UI can reach.
+            availableDecks: deckRows.filter(deck => !deck.selected),
+            // Selection order, not catalogue order: the GM built this list, so it reads back the
+            // way they built it.
+            chosenDecks: state.deckIds
+                .map(id => deckRows.find(deck => deck.id === id))
+                .filter(Boolean),
+            hasChosen: deckRows.some(deck => deck.selected),
 
             tiers: Array.from({ length: TIER_RANGE.max - TIER_RANGE.min + 1 }, (unused, i) => {
                 const value = TIER_RANGE.min + i;
@@ -292,10 +356,8 @@ export class EncounterBuilder extends HandlebarsApplicationMixin(ApplicationV2) 
             modifiers: EncounterBuilder.#readModifiers(data, state.modifiers)
         };
 
-        // A <select multiple> yields an array of the chosen ids, and an empty array when nothing
-        // is selected — which is the deckless mode, not a missing value. The field is absent
-        // entirely when there are no decks to render, hence the presence check.
-        if (Array.isArray(data.deckIds)) changes.deckIds = data.deckIds;
+        // Deck selection is not a form field any more — it is add/remove actions against
+        // state.deckIds, so there is nothing to read for it here.
 
         // Target BP and draw count are mutually exclusive in the template — only the field for
         // the active mode is rendered. Reading the absent one would wipe the value the GM set
@@ -412,6 +474,28 @@ export class EncounterBuilder extends HandlebarsApplicationMixin(ApplicationV2) 
         actor?.sheet?.render(true);
     }
 
+    /**
+     * Add a deck to the draw pool from the search droplist.
+     *
+     * Appends rather than inserting in catalogue order, so the chosen list reads back in the order
+     * the GM assembled it.
+     */
+    static async #onAddDeck(event, target) {
+        const state = this.state;
+        if (state.locked) return;
+
+        const deckId = target.dataset.deckId;
+        if (!deckId || state.deckIds.includes(deckId)) return;
+        await this.#update({ deckIds: [...state.deckIds, deckId] });
+    }
+
+    /** Drop a deck out of the draw pool. Removing the last one is deckless mode, not an error. */
+    static async #onRemoveDeck(event, target) {
+        const state = this.state;
+        if (state.locked) return;
+        await this.#update({ deckIds: state.deckIds.filter(id => id !== target.dataset.deckId) });
+    }
+
     static #onOpenDecks() {
         openDeckEditor();
     }
@@ -440,7 +524,69 @@ export class EncounterBuilder extends HandlebarsApplicationMixin(ApplicationV2) 
     /** @override */
     async _onRender(context, options) {
         await super._onRender(context, options);
+        // Both re-bound every render: PARTS are replaced wholesale, listeners and all.
         this.dragDrop.bind(this.element);
+        this.#bindDeckSearch();
+    }
+
+    /**
+     * Wire the deck search box.
+     *
+     * Filtering happens entirely in the DOM. Routing it through state would mean a settings write
+     * and a full re-render per keystroke, for something that is not part of the encounter at all.
+     */
+    #bindDeckSearch() {
+        const search = this.element.querySelector('.rdbd-deck-search');
+        if (!search) return;
+
+        const input = search.querySelector('.rdbd-deck-filter');
+        const options = search.querySelector('.rdbd-deck-options');
+        if (!input || !options) return;
+
+        // Adding a deck re-renders, which throws this DOM away; restore what the GM had typed.
+        input.value = this.#deckFilter;
+        this.#filterDeckOptions();
+
+        input.addEventListener('input', () => {
+            this.#deckFilter = input.value;
+            this.#filterDeckOptions();
+        });
+        input.addEventListener('focus', () => {
+            this.#deckFocused = true;
+        });
+        input.addEventListener('blur', () => {
+            this.#deckFocused = false;
+        });
+
+        // The droplist is open only while the search box has focus. Clicking an option would
+        // ordinarily move focus to that button, closing the list on mousedown — before the click
+        // lands. Suppressing the default keeps focus in the input, so the button is still there to
+        // be clicked and the list stays open for the next pick.
+        options.addEventListener('pointerdown', event => event.preventDefault());
+
+        if (this.#deckFocused) input.focus();
+    }
+
+    /** Show only the deck options matching the current search text. */
+    #filterDeckOptions() {
+        const options = this.element?.querySelector('.rdbd-deck-options');
+        if (!options) return;
+
+        const query = this.#deckFilter.trim().toLowerCase();
+        const items = options.querySelectorAll('li[data-search]');
+        let matches = 0;
+
+        for (const item of items) {
+            const hit = fuzzyMatch(query, item.dataset.search);
+            item.hidden = !hit;
+            if (hit) matches += 1;
+        }
+
+        // Only meaningful while something is being typed against a non-empty droplist. With every
+        // deck already in play the template's own note is the right message, and saying "no deck
+        // matches" underneath it would just be a second way of stating the same thing.
+        const noMatch = options.querySelector('.rdbd-deck-no-match');
+        if (noMatch) noMatch.hidden = matches > 0 || !query || !items.length;
     }
 
     async #onDragStart(event) {

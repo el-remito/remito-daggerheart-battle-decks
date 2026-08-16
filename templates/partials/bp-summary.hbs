@@ -1,16 +1,20 @@
 {{!--
     Battle Points readout — the same four rows as Main_v2!B17:C21, in the same order.
     A negative Budget Left is highlighted, mirroring the spreadsheet's conditional formatting.
+
+    A <fieldset> with a <legend>, not a <section> with a heading, purely so this column shares its
+    chrome with the Decks and Modifiers fieldsets beside it: same border, same padding, same y for
+    the first line of content. As a <section> it sat a few pixels off from both of them.
 --}}
-<section class="rdbd-summary">
-    <h3>
+<fieldset class="rdbd-summary">
+    <legend>
         {{localize "RDBD.Summary.title"}}
         <button type="button" class="rdbd-badge" data-action="openCosts"
                 data-tooltip="{{localize 'RDBD.TypeCosts.menuName'}}"
                 aria-label="{{localize 'RDBD.TypeCosts.menuName'}}">
             <i class="fa-solid fa-coins"></i>
         </button>
-    </h3>
+    </legend>
 
     <dl class="rdbd-summary-rows">
         <div class="rdbd-summary-row">
@@ -40,7 +44,10 @@
     <ul class="rdbd-derived">
         {{#each modifierRows}}
             <li class="{{#if derived}}rdbd-derived-composition{{/if}}">
-                <span>{{label}}</span>
+                {{!-- Three words at most, because this column is narrow and a truncated row that
+                      reads "No Bruisers, Hordes, Lea…" tells the GM nothing. The spreadsheet's
+                      full wording is one hover away. --}}
+                <span data-tooltip="{{label}}">{{short}}</span>
                 <span class="rdbd-derived-detail">{{detail}}</span>
                 <span class="rdbd-derived-value">
                     {{#if (gte value 0)}}+{{/if}}{{value}}
@@ -52,4 +59,4 @@
     {{#if overBudget}}
         <p class="rdbd-warning">{{localize "RDBD.Summary.overBudget"}}</p>
     {{/if}}
-</section>
+</fieldset>

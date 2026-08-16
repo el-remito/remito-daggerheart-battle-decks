@@ -18,7 +18,7 @@
  */
 
 import { GENERATION_MODE, MAX_DRAW_ITERATIONS, NS } from '../config/constants.mjs';
-import { effectiveTypes, typeLabel, isPriced } from '../config/adversary-types.mjs';
+import { effectiveTypes, typeLabel, isPriced, isIgnored } from '../config/adversary-types.mjs';
 import { resolvePool } from '../data/decks.mjs';
 import { computeBudget, spendable, adversaryTotal, unitCost, isGrouped } from './bp.mjs';
 
@@ -32,19 +32,26 @@ import { computeBudget, spendable, adversaryTotal, unitCost, isGrouped } from '.
  * @returns {object[]} Pool entries.
  */
 export function rolePool(partyTier) {
-    return Object.values(effectiveTypes()).map(type => ({
-        key: `role:${type.id}`,
-        uuid: null,
-        name: typeLabel(type.id),
-        img: null,
-        type: type.id,
-        tier: partyTier
-    }));
+    return Object.values(effectiveTypes())
+        .filter(type => !type.ignored)
+        .map(type => ({
+            key: `role:${type.id}`,
+            uuid: null,
+            name: typeLabel(type.id),
+            img: null,
+            type: type.id,
+            tier: partyTier
+        }));
 }
 
 /**
  * Resolve the draw pool for a generation run.
  * Selecting no decks is not an error — it is the deckless mode.
+ *
+ * Ignored types are dropped here, which is the one place worth doing it: every draw path — a fresh
+ * generate, Draw Another, and a single-card re-roll — comes through this function, so a type the GM
+ * has switched off cannot re-enter an encounter by any route. Cards already on the table are left
+ * alone; ignoring a type is not a retroactive edit of an encounter the GM has already accepted.
  *
  * @param {object} state Encounter state.
  * @returns {Promise<object[]>} Pool entries.
@@ -52,7 +59,7 @@ export function rolePool(partyTier) {
 export async function buildPool(state) {
     if (!state.deckIds?.length) return rolePool(state.partyTier);
     const pool = await resolvePool(state.deckIds);
-    return pool.map(entry => ({ ...entry, key: entry.uuid }));
+    return pool.filter(entry => !isIgnored(entry.type)).map(entry => ({ ...entry, key: entry.uuid }));
 }
 
 /**

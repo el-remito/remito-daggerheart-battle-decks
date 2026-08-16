@@ -37,13 +37,22 @@
             {{#if adversaries.length}}
                 <ul class="rdbd-adversary-list">
                     {{#each adversaries}}
-                        <li class="rdbd-adversary-row" data-uuid="{{uuid}}">
+                        <li class="rdbd-adversary-row {{#if ignored}}rdbd-ignored{{/if}}"
+                            data-uuid="{{uuid}}">
                             <img src="{{img}}" alt="{{name}}" data-action="openAdversary" data-uuid="{{uuid}}"
                                  data-tooltip="{{localize 'RDBD.Card.openSheet'}}">
                             <span class="rdbd-adversary-name">{{name}}</span>
                             <span class="rdbd-tag rdbd-tag-type">{{typeLabel}}</span>
                             <span class="rdbd-tag">{{localize "RDBD.Card.tier"}} {{tier}}</span>
-                            {{#if unpriced}}
+                            {{#if ignored}}
+                                {{!-- Stays in the deck, never drawn. Says so, because a silently
+                                      un-rollable card looks like a bug from here. --}}
+                                <span class="rdbd-tag rdbd-tag-ignored"
+                                      data-tooltip="{{localize 'RDBD.TypeCosts.ignoredTooltip'}}">
+                                    <i class="fa-solid fa-ban"></i>
+                                    {{localize "RDBD.TypeCosts.ignored"}}
+                                </span>
+                            {{else if unpriced}}
                                 <span class="rdbd-tag rdbd-tag-unpriced"
                                       data-tooltip="{{localize 'RDBD.TypeCosts.unpricedTooltip'}}">
                                     <i class="fa-solid fa-triangle-exclamation"></i>

@@ -161,17 +161,21 @@
     gap: var(--rdbd-gap);
 }
 
+/* Decks / Modifiers / Battle Points. `stretch` rather than `start` so the three boxes share a top
+   AND a bottom edge; all three are fieldsets, so their first line of content shares a baseline
+   too. minmax(0, ...) keeps a long deck name from widening its own column past its share. */
 .rdbd-columns {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
     gap: var(--rdbd-gap);
-    align-items: start;
+    align-items: stretch;
 }
 
 .rdbd-field {
     display: flex;
     flex-direction: column;
     gap: 0.15rem;
+    min-width: 0;
 }
 
 .rdbd-field > label {
@@ -179,22 +183,21 @@
     font-weight: 600;
 }
 
-/* Modifier rows read better as label-left / control-right. */
-.rdbd-field-inline {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    align-items: center;
-    gap: var(--rdbd-gap);
-    margin-bottom: 0.25rem;
+/* Modifier rows: label above, control below, every control the full width of the column. Side by
+   side, each dropdown sized itself to its own longest option and each label wrapped to a different
+   number of lines, so no two rows lined up with each other. */
+.rdbd-modifier {
+    margin-bottom: 0.4rem;
 }
 
-.rdbd-field-inline > label {
-    font-weight: 400;
+.rdbd-modifier:last-child {
+    margin-bottom: 0;
 }
 
-.rdbd-field-inline input[type='number'] {
-    width: 4.5rem;
-    text-align: center;
+.rdbd-app .rdbd-modifier select,
+.rdbd-app .rdbd-modifier input[type='number'] {
+    width: 100%;
+    min-width: 0;
 }
 
 .rdbd-app fieldset {
@@ -215,36 +218,111 @@
     font-weight: 600;
 }
 
-.rdbd-check {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    align-items: center;
-    gap: var(--rdbd-gap);
-    padding: 0.15rem 0;
-    cursor: pointer;
-}
-
+/* Outlined rather than filled: this badge sits on three different panel colours (the deck rail,
+   the droplist and a selected chip), and any fill it picked would vanish against one of them. */
 .rdbd-deck-count {
     min-width: 1.5rem;
     padding: 0 0.35rem;
+    border: 1px solid var(--rdbd-border);
     border-radius: 999px;
-    background: var(--rdbd-panel-bg-alt);
     text-align: center;
     font-size: var(--font-size-11, 0.7rem);
     font-variant-numeric: tabular-nums;
 }
 
-/* Multi-select deck picker. Sized in rows by the app, so it scrolls rather than growing the
-   panel once a GM has a large catalogue. */
-.rdbd-app .rdbd-deck-select {
-    width: 100%;
-    min-height: 0;
-    padding: 0.15rem;
+/* -------------------------------------------- */
+/*  Deck picker: search on top, chosen below     */
+/* -------------------------------------------- */
+
+.rdbd-deck-search {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
 }
 
-.rdbd-app .rdbd-deck-select option {
-    padding: 0.1rem 0.25rem;
+.rdbd-deck-search-field {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--rdbd-text-muted);
+}
+
+.rdbd-app .rdbd-deck-filter {
+    width: 100%;
+    min-width: 0;
+}
+
+/* The droplist. Kept in flow rather than absolutely positioned: the window content scrolls, and an
+   absolute panel would be clipped by it. Open while the search box holds focus, and open outright
+   until the first deck is chosen so the catalogue is visible without having to guess it is there. */
+.rdbd-deck-options {
+    display: none;
+    list-style: none;
+    margin: 0;
+    padding: 0.15rem;
+    max-height: 9.5rem;
+    overflow-y: auto;
+    background: var(--rdbd-panel-bg-alt);
+    border: 1px solid var(--rdbd-border);
+    border-radius: 4px;
+}
+
+.rdbd-deck-search:focus-within .rdbd-deck-options,
+.rdbd-deck-search-open .rdbd-deck-options {
+    display: block;
+}
+
+.rdbd-app .rdbd-deck-option {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--rdbd-gap);
+    width: 100%;
+    padding: 0.15rem 0.3rem;
+    background: none;
+    border: none;
     border-radius: 3px;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.rdbd-app .rdbd-deck-option:hover:not(:disabled) {
+    background: var(--rdbd-panel-bg);
+    color: var(--rdbd-accent);
+}
+
+.rdbd-deck-note {
+    padding: 0.2rem 0.3rem;
+    color: var(--rdbd-text-muted);
+    font-size: var(--font-size-12, 0.75rem);
+    font-style: italic;
+}
+
+/* The decks actually being drawn from. Scrolls on its own so a wide selection cannot push
+   Generate off the bottom of the panel. */
+.rdbd-deck-chosen {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    list-style: none;
+    margin: 0.4rem 0 0;
+    padding: 0;
+    max-height: 9rem;
+    overflow-y: auto;
+}
+
+.rdbd-deck-chip {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.1rem 0.15rem 0.1rem 0.35rem;
+    background: var(--rdbd-panel-bg-alt);
+    border: 1px solid var(--rdbd-border);
+    border-radius: 4px;
 }
 
 .rdbd-deckless-note {
@@ -271,20 +349,10 @@
 /*  Battle Points summary                       */
 /* -------------------------------------------- */
 
+/* A fieldset like the two columns beside it, so border, padding and first baseline all agree.
+   Only the fill differs, to mark it as the readout rather than another set of inputs. */
 .rdbd-summary {
-    padding: 0.5rem 0.6rem;
     background: var(--rdbd-panel-bg-alt);
-    border: 1px solid var(--rdbd-border);
-    border-radius: 4px;
-}
-
-.rdbd-summary h3 {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--rdbd-gap);
-    font-size: var(--font-size-13, 0.8rem);
-    margin-bottom: 0.35rem;
 }
 
 /* Secondary action beside Generate; keep it visually subordinate. */
@@ -294,7 +362,7 @@
 }
 
 .rdbd-summary-rows {
-    margin: 0;
+    margin: 0.15rem 0 0;
 }
 
 .rdbd-summary-row {
@@ -343,10 +411,12 @@
     padding: 0.05rem 0;
 }
 
+/* Abbreviated label. `help` advertises that the sheet's full wording is on the tooltip. */
 .rdbd-derived li > span:first-child {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    cursor: help;
 }
 
 /* The two rows the encounter's own composition drives, separated from the GM's own choices. */
@@ -450,10 +520,14 @@
     flex: 0 0 auto;
 }
 
+/* Top-anchored, not centred. Adversary art is nearly always a portrait with the head near the top,
+   and a centred square crop of a tall image cuts the face off — which is the one part of it that
+   identifies the creature at 52px. */
 .rdbd-card-portrait img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: top center;
     border: 1px solid var(--rdbd-border);
     border-radius: 4px;
 }
@@ -628,10 +702,12 @@
     border-bottom: none;
 }
 
+/* Same top-anchored crop as the encounter cards, and for the same reason. */
 .rdbd-adversary-row img {
     width: 32px;
     height: 32px;
     object-fit: cover;
+    object-position: top center;
     border: 1px solid var(--rdbd-border);
     border-radius: 4px;
     cursor: pointer;
@@ -670,6 +746,9 @@
     font-size: var(--font-size-13, 0.8rem);
 }
 
+/* The explicit colour is the point: the system's own table styling paints header cells near-black,
+   which against this panel's dark fill is unreadable. Matching --rdbd-text puts them on the same
+   tone as .rdbd-cost-label in the rows below. */
 .rdbd-cost-table thead th {
     position: sticky;
     top: 0;
@@ -677,6 +756,7 @@
     padding: 0.35rem 0.5rem;
     background: var(--rdbd-panel-bg-alt);
     border-bottom: 1px solid var(--rdbd-border);
+    color: var(--rdbd-text);
     font-family: var(--dh-font-subtitle, inherit);
     text-align: left;
 }
@@ -693,6 +773,11 @@
 
 .rdbd-cost-col {
     width: 6.5rem;
+    text-align: center;
+}
+
+/* Beats the `text-align: left` on every other header, so a header sits over its own control. */
+.rdbd-cost-table thead th.rdbd-cost-col {
     text-align: center;
 }
 
@@ -714,6 +799,19 @@
 /* Types with no cost sort to the top; make it obvious why they are there. */
 .rdbd-cost-table tr.rdbd-unpriced {
     background: color-mix(in srgb, var(--rdbd-danger) 12%, transparent);
+}
+
+/* Switched off. Struck through rather than dimmed, because the row's own controls — including the
+   toggle that switches it back on — have to stay perfectly legible. */
+.rdbd-cost-table tr.rdbd-ignored .rdbd-cost-label,
+.rdbd-adversary-row.rdbd-ignored .rdbd-adversary-name {
+    color: var(--rdbd-text-muted);
+    text-decoration: line-through;
+}
+
+.rdbd-tag-ignored {
+    border-color: var(--rdbd-text-muted);
+    color: var(--rdbd-text-muted);
 }
 
 .rdbd-type-costs-footer {

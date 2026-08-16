@@ -114,6 +114,15 @@ would leave the old behaviour behind. Costs, by contrast, compare against the sy
 GM's entered number is always stored even when it happens to equal the aliased type's own cost.
 `settings-harness.mjs` pins all of this.
 
+**An ignored type is filtered out in exactly one place: `generator.buildPool()`.** Every draw path
+— Generate, *Draw Another*, per-card re-roll — goes through it, so filtering there is what makes
+"ignored" airtight. Do not add a second filter at a call site; do not filter in `decorateCards()`
+or anywhere that touches cards already on the table, because ignoring a type is a draw-pool rule,
+not a retroactive edit of an encounter the GM has accepted. Ignore is also never inherited from an
+alias (whether a type is worth rolling is a statement about this table, not about Bruisers), and an
+ignored type is excluded from `unpricedTypes()` and from the editor's `unpriced` flag — it can
+never reach a budget, so a missing cost is no longer a defect worth nagging about.
+
 **Party tier and size are not settings.** The Battle Encounters window owns both; the `encounter`
 world setting is what remembers them between sessions, and `PARTY_DEFAULTS` in `bp-tables.mjs` is
 a first-run seed only. There used to be two `config: true` settings duplicating them — do not add
@@ -167,6 +176,26 @@ contributing modifier is listed with its value in the Battle Points panel instea
 (`EncounterBuilder#modifierRows`), so the arithmetic is readable in one place rather than scattered
 across four controls. The two composition-driven rows stay in that list even at 0, because their
 counts are what explain the roster.
+
+**Every modifier carries two names.** `RDBD.Modifier.<key>.label` is the spreadsheet's own wording;
+`.short` is at most three words and is what the Battle Points panel renders, with the full label on
+the tooltip. Adding a modifier means adding both — `#modifierRows` falls back to `.label` if
+`.short` is missing, which keeps the row printable but clipped. The builder's own dropdowns still
+use the full label: they get a whole column each.
+
+**Deck selection is not a form field.** It lives in `state.deckIds` and changes only through the
+`addDeck` / `removeDeck` actions, so nothing in `#onChangeForm` reads it. The search box's text is
+instance state (`#deckFilter`), never persisted — it says nothing about the encounter — and
+filtering runs against the DOM in `#filterDeckOptions` rather than through a re-render, because a
+settings write per keystroke would be absurd. `#bindDeckSearch` restores both the text and the
+focus after the re-render that adding a deck triggers, and suppresses `pointerdown` on the droplist
+so clicking an option does not blur the input and close the list before the click lands.
+
+**The three builder columns are all `<fieldset>`s.** Decks, Modifiers and the Battle Points summary
+share border, padding and first-baseline purely by being the same element with a `<legend>`. If the
+summary is ever turned back into a `<section>` with a heading, it will sit a few pixels off from its
+neighbours again. Modifier rows are stacked (label above control, control at `width: 100%`) for the
+same reason: in a ~250px column, side-by-side gave every dropdown a different width.
 
 **Object-shaped settings are stored as arrays.** Both `decks` and `typeCosts` are
 `ArrayField(ObjectField)` rather than keyed objects, because writing a setting merges plain objects

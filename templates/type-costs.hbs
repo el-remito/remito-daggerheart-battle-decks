@@ -15,6 +15,13 @@
         </p>
     {{/if}}
 
+    {{#if hasIgnored}}
+        <p class="rdbd-hint">
+            <i class="fa-solid fa-ban"></i>
+            {{localize "RDBD.TypeCosts.ignoredNote"}}
+        </p>
+    {{/if}}
+
     <div class="rdbd-cost-table-wrap">
         <table class="rdbd-cost-table">
             <thead>
@@ -24,11 +31,12 @@
                     <th>{{localize "RDBD.TypeCosts.treatedAs"}}</th>
                     <th class="rdbd-cost-col">{{localize "RDBD.TypeCosts.cost"}}</th>
                     <th class="rdbd-cost-col">{{localize "RDBD.TypeCosts.grouped"}}</th>
+                    <th class="rdbd-cost-col">{{localize "RDBD.TypeCosts.ignore"}}</th>
                 </tr>
             </thead>
             <tbody>
                 {{#each rows}}
-                    <tr class="{{#if unpriced}}rdbd-unpriced{{/if}}">
+                    <tr class="{{#if unpriced}}rdbd-unpriced{{/if}} {{#if ignored}}rdbd-ignored{{/if}}">
                         <td>
                             <span class="rdbd-cost-label">{{label}}</span>
                             <code class="rdbd-cost-id">{{id}}</code>
@@ -75,6 +83,12 @@
                         <td class="rdbd-cost-col">
                             <input type="checkbox" name="grouped.{{id}}" {{checked grouped}}
                                    data-tooltip="{{localize 'RDBD.TypeCosts.groupedHint'}}">
+                        </td>
+                        <td class="rdbd-cost-col">
+                            {{!-- Draw-pool filter only. The type keeps its cost and stays in
+                                  whatever decks hold it; it is simply never rolled. --}}
+                            <input type="checkbox" name="ignored.{{id}}" {{checked ignored}}
+                                   data-tooltip="{{localize 'RDBD.TypeCosts.ignoreHint'}}">
                         </td>
                     </tr>
                 {{/each}}

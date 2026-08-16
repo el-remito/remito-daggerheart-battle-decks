@@ -64,17 +64,63 @@
                 </legend>
 
                 {{#if hasDecks}}
-                    {{!-- A multi-select scrolls, where a checkbox per deck grew the panel without
-                          bound once a GM had more than a handful. --}}
-                    <select id="rdbd-decks" class="rdbd-deck-select" name="deckIds" multiple
-                            size="{{deckSelectSize}}" {{disabled state.locked}}>
-                        {{#each decks}}
-                            <option value="{{id}}" {{#if selected}}selected{{/if}}>
-                                {{name}} ({{count}})
-                            </option>
+                    {{!--
+                        Two segments. On top, a search box whose droplist holds every deck NOT yet
+                        drawn from; underneath, the decks that are. A multi-select made the GM read
+                        one long list and work out which rows were highlighted — here the answer to
+                        "what am I drawing from?" is the bottom list and nothing else.
+
+                        The droplist opens on focus (and stays open while no deck has been chosen,
+                        so a first-time GM sees the catalogue rather than an empty search box).
+                        Filtering is done in the DOM by #filterDeckOptions, so typing costs no
+                        re-render and no round-trip to the setting.
+                    --}}
+                    <div class="rdbd-deck-search {{#unless hasChosen}}rdbd-deck-search-open{{/unless}}">
+                        <label class="rdbd-deck-search-field">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" class="rdbd-deck-filter" autocomplete="off"
+                                   placeholder="{{localize 'RDBD.Builder.deckSearch'}}"
+                                   aria-label="{{localize 'RDBD.Builder.deckSearch'}}"
+                                   {{disabled state.locked}}>
+                        </label>
+
+                        <ul class="rdbd-deck-options">
+                            {{#each availableDecks}}
+                                <li data-search="{{search}}">
+                                    <button type="button" class="rdbd-deck-option" data-action="addDeck"
+                                            data-deck-id="{{id}}" {{disabled @root.state.locked}}
+                                            data-tooltip="{{name}}">
+                                        <span class="rdbd-deck-label">{{name}}</span>
+                                        <span class="rdbd-deck-count">{{count}}</span>
+                                    </button>
+                                </li>
+                            {{else}}
+                                <li class="rdbd-deck-note">{{localize "RDBD.Builder.allDecksChosen"}}</li>
+                            {{/each}}
+                            {{!-- Toggled by #filterDeckOptions when the query matches nothing. --}}
+                            <li class="rdbd-deck-note rdbd-deck-no-match" hidden>
+                                {{localize "RDBD.Builder.deckNoMatch"}}
+                            </li>
+                        </ul>
+                    </div>
+
+                    <ul class="rdbd-deck-chosen">
+                        {{#each chosenDecks}}
+                            <li class="rdbd-deck-chip">
+                                <span class="rdbd-deck-label" data-tooltip="{{name}}">{{name}}</span>
+                                <span class="rdbd-deck-count">{{count}}</span>
+                                <button type="button" class="rdbd-badge rdbd-badge-danger"
+                                        data-action="removeDeck" data-deck-id="{{id}}"
+                                        {{disabled @root.state.locked}}
+                                        data-tooltip="{{localize 'RDBD.Builder.removeDeck'}}"
+                                        aria-label="{{localize 'RDBD.Builder.removeDeck'}}">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </li>
+                        {{else}}
+                            <li class="rdbd-deck-note">{{localize "RDBD.Builder.noDecksChosen"}}</li>
                         {{/each}}
-                    </select>
-                    <p class="rdbd-field-hint">{{localize "RDBD.Builder.decksHint"}}</p>
+                    </ul>
                 {{else}}
                     <p class="rdbd-empty">{{localize "RDBD.Builder.noDecks"}}</p>
                 {{/if}}
@@ -90,8 +136,15 @@
             <fieldset class="rdbd-modifiers">
                 <legend>{{localize "RDBD.Builder.modifiers"}}</legend>
 
+                {{!--
+                    Label above control, not beside it. A modifier column is ~250px wide and
+                    "Encounter Difficulty & Duration" alone eats most of that, so side-by-side left
+                    every dropdown a different width and every label a different number of lines.
+                    Stacked, all six labels start at the same x and all six controls are the same
+                    width, which is what makes the block scannable.
+                --}}
                 {{#each selects}}
-                    <div class="rdbd-field rdbd-field-inline">
+                    <div class="rdbd-field rdbd-modifier">
                         <label for="rdbd-mod-{{key}}">{{label}}</label>
                         {{!-- Labels are abbreviated to fit the column; `hint` carries the source
                               spreadsheet's full wording as a hover title. --}}
@@ -105,14 +158,14 @@
                     </div>
                 {{/each}}
 
-                <div class="rdbd-field rdbd-field-inline">
+                <div class="rdbd-field rdbd-modifier">
                     <label for="rdbd-mod-damage">{{localize "RDBD.Modifier.extraDamage.label"}}</label>
                     <input id="rdbd-mod-damage" type="number" name="modifiers.extraDamageDice"
                            value="{{state.modifiers.extraDamageDice}}" min="0" max="{{maxExtraDamage}}"
                            step="1" {{disabled state.locked}}>
                 </div>
 
-                <div class="rdbd-field rdbd-field-inline">
+                <div class="rdbd-field rdbd-modifier">
                     <label for="rdbd-mod-adhoc">{{localize "RDBD.Modifier.adHoc.label"}}</label>
                     <input id="rdbd-mod-adhoc" type="number" name="modifiers.adHoc"
                            value="{{state.modifiers.adHoc}}" step="1" {{disabled state.locked}}>

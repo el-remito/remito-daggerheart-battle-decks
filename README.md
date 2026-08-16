@@ -30,6 +30,8 @@ Foundry **v14**, Daggerheart system **2.7+**. GM-only.
 - **Custom adversary types are priceable** — the Daggerheart system has nowhere to record a BP
   cost for a homebrew adversary type, so the module keeps its own table. A custom type can also be
   told to follow an official type's rules. See *Settings* below.
+- **Any type can be ignored** — switched off for generation without being removed from a deck, for
+  the roles you never want rolled into a fight.
 
 ## Installation
 
@@ -45,9 +47,10 @@ https://raw.githubusercontent.com/el-remito/remito-daggerheart-battle-decks/main
    at the top of the window — they stick, so this is a first-run job.
 2. Click the gear beside *Decks* to open the **Deck Editor**. Create a deck and drag adversaries
    into it. Only `adversary` actors are accepted, and a deck will not take the same adversary twice.
-3. Back in the builder, pick the decks to draw from (ctrl-click or shift-click for several), set
-   the modifiers, and hit **Generate**. Leave *Target BP* blank to use the budget shown in the
-   field — the baseline plus your modifiers.
+3. Back in the builder, add the decks to draw from: type in the *Decks* search box and click a
+   result. Chosen decks collect in the list underneath, each with an ✕ to drop it again. Set the
+   modifiers and hit **Generate**. Leave *Target BP* blank to use the budget shown in the field —
+   the baseline plus your modifiers.
 4. Click a card to open its sheet; drag it onto the canvas to place tokens. Placed cards grey out.
 5. **Accept** locks the roster so it cannot drift; the cards stay draggable and the encounter is
    restored the next time you open the window.
@@ -75,6 +78,7 @@ It lists every adversary type the system knows about, built-in and homebrew:
 | Treated As | Homebrew only — make this type follow an official type's rules. Not its cost |
 | BP Cost | Cost of one at the party's own tier. Blank falls back to the system's value |
 | Group per BP | One BP buys a whole group of party-size creatures, the way minions work |
+| Ignore | Never draw this type into an encounter |
 
 **Treated As** makes a homebrew type follow an official type's *rules*. Point a *Warbeast* at
 *Bruiser* and it counts as a Bruiser everywhere the rules ask, so it revokes the "no Bruisers,
@@ -83,6 +87,12 @@ charge; point one at *Minion* and one Battle Point buys a whole group of them.
 
 It does **not** set the cost. That stays whatever you enter — a type treated as a Bruiser is not
 automatically worth 4 BP, and a type with an alias but no cost is still unpriced.
+
+**Ignore** takes a type out of every draw. Decks can still hold it, its cost still applies, and an
+encounter that already contains one keeps it — it is simply never picked again, by Generate, by
+*Draw Another*, or by a per-card re-roll. Ignore *Social* and a deck of your whole cast will only
+ever roll the ones worth fighting. An ignored type also stops being reported as unpriced: it can
+never reach a budget, so a missing cost no longer matters.
 
 Only differences from the system's values are stored, so a built-in type you never touch keeps
 following the system. Types without a cost sort to the top, are skipped when filling a budget, and
@@ -120,6 +130,32 @@ To confirm the maths after any change, run the spreadsheet's own worked example 
 ```js
 game.modules.get("remito-daggerheart-battle-decks").api.selfTest()
 ```
+
+## Changelog
+
+### 1.0.1
+
+- **Ignore a type.** New *Ignore* column in *Adversary BP Costs*. An ignored type stays in its
+  decks and keeps its cost, but is never drawn — by Generate, by *Draw Another*, or by a per-card
+  re-roll. An encounter already holding one keeps it. Ignoring is not inherited through
+  *Treated As*, and an ignored type stops being reported as unpriced.
+- **Deck picker rebuilt** as a search box over the decks not yet in play, with the chosen decks
+  collecting in a scrolling list underneath, each with an ✕. Matching is loose, so `bnd` finds
+  *Bandits* and `gob c` finds *Goblin Camp*. A deck deleted while it was selected is now dropped
+  from the selection instead of lingering as an unremovable entry.
+- **Column alignment.** The Battle Points summary is a fieldset like its two neighbours, so all
+  three panels share a border, padding and baseline. Modifier labels sit above their controls
+  rather than beside them, which is what let every row size itself differently.
+- **Shorter derived rows** in the Battle Points readout — *Picked 2+ Solo*, *No Heavy Hitters* —
+  with the full wording on hover.
+- **Portraits crop from the top** on encounter cards and deck rows, so a creature's head is no
+  longer clipped in favour of its middle.
+- Cost-table headers are legible again; they were inheriting a near-black colour over the panel
+  fill.
+
+### 1.0.0
+
+Initial release.
 
 ## Licence
 

@@ -5,6 +5,10 @@
  * without this window a custom type would cost nothing and quietly break every budget it appeared
  * in. Here the GM gives each one a Battle Point cost, and can retune the ten built-in costs too.
  *
+ * It is also where a type is switched off: an ignored type stays in whatever decks contain it but
+ * is never drawn into an encounter, which is how a GM keeps, say, Socials out of a fight without
+ * curating a second deck.
+ *
  * Only differences from the system's own values are saved. That keeps the setting small and means
  * a future system revision to a built-in cost still reaches an untouched row.
  */
@@ -27,7 +31,7 @@ export class TypeCostEditor extends HandlebarsApplicationMixin(ApplicationV2) {
             minimizable: true,
             resizable: true
         },
-        position: { width: 620, height: 640 },
+        position: { width: 720, height: 640 },
         // Unlike the builder this form does NOT submit on change: costs re-price every existing
         // encounter, so the GM gets an explicit Save.
         form: { handler: TypeCostEditor.#onSubmit, submitOnChange: false, closeOnSubmit: true },
@@ -61,11 +65,14 @@ export class TypeCostEditor extends HandlebarsApplicationMixin(ApplicationV2) {
                 label: game.i18n.localize(type.label ?? type.id),
                 homebrew: type.homebrew,
                 overridden: type.overridden,
-                unpriced: !type.priced,
+                // An ignored type is never drawn, so having no cost is not a defect worth flagging
+                // — switching a type off is a legitimate way to answer "this one has no price".
+                unpriced: !type.priced && !type.ignored,
                 // Blank rather than 0 for an unpriced type, so the placeholder can prompt for one.
                 // An alias never fills this in: it says how the type behaves, not what it costs.
                 cost: type.priced ? type.bpCost : '',
                 grouped: type.partyAmountPerBP,
+                ignored: type.ignored,
                 alias: type.alias ?? '',
                 aliasOptions: type.homebrew
                     ? officialTypes.map(option => ({ ...option, selected: option.value === type.alias }))
@@ -79,6 +86,7 @@ export class TypeCostEditor extends HandlebarsApplicationMixin(ApplicationV2) {
             rows,
             unpriced: rows.filter(row => row.unpriced),
             hasUnpriced: rows.some(row => row.unpriced),
+            hasIgnored: rows.some(row => row.ignored),
             hasOverrides: rows.some(row => row.overridden),
             coreCount: Object.keys(core).length
         };
@@ -102,6 +110,7 @@ export class TypeCostEditor extends HandlebarsApplicationMixin(ApplicationV2) {
             const raw = data[`cost.${id}`];
             const cost = raw === null || raw === '' ? null : Number(raw);
             const grouped = data[`grouped.${id}`] === true;
+            const ignored = data[`ignored.${id}`] === true;
 
             // Only homebrew rows render an alias select, so this is absent for the official ten.
             const chosenAlias = data[`alias.${id}`];
@@ -122,12 +131,15 @@ export class TypeCostEditor extends HandlebarsApplicationMixin(ApplicationV2) {
             // going back to being unpriced whether or not it has an alias.
             const costDiffers = Number.isFinite(cost) && cost !== inheritedCost;
             const groupedDiffers = grouped !== inheritedGrouped;
-            if (!costDiffers && !groupedDiffers && !alias) continue;
+            // Ignoring has no system counterpart to inherit from — off is the only default there
+            // could be, so the flag is stored whenever it is on and dropped whenever it is off.
+            if (!costDiffers && !groupedDiffers && !alias && !ignored) continue;
 
             const row = { id };
             if (costDiffers) row.bpCost = cost;
             if (groupedDiffers) row.partyAmountPerBP = grouped;
             if (alias) row.alias = alias;
+            if (ignored) row.ignored = true;
             overrides.push(row);
         }
 
