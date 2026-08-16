@@ -34,19 +34,35 @@
 
             {{#if budgetMode}}
                 <div class="rdbd-field">
-                    <label for="rdbd-target">{{localize "RDBD.Builder.targetBP"}}</label>
+                    {{!-- The hint hangs off the label as an info badge rather than sitting under
+                          the control as a paragraph. Two lines of explanatory text per field cost
+                          more vertical room than the field itself, and this row is the one the
+                          setup fold does not hide. --}}
+                    <label for="rdbd-target">
+                        {{localize "RDBD.Builder.targetBP"}}
+                        <span class="rdbd-info-badge" tabindex="0"
+                              data-tooltip="{{localize 'RDBD.Builder.targetBPHint'}}"
+                              aria-label="{{localize 'RDBD.Builder.targetBPHint'}}">
+                            <i class="fa-solid fa-circle-info"></i>
+                        </span>
+                    </label>
                     {{!-- Placeholder is the budget this encounter would get if left blank:
                           baseline plus every modifier the GM has set. --}}
                     <input id="rdbd-target" type="number" name="targetBP" value="{{state.targetBP}}"
                            step="1" placeholder="{{expectedBP}}" {{disabled state.locked}}>
-                    <p class="rdbd-field-hint">{{localize "RDBD.Builder.targetBPHint"}}</p>
                 </div>
             {{else}}
                 <div class="rdbd-field">
-                    <label for="rdbd-draw">{{localize "RDBD.Builder.drawCount"}}</label>
+                    <label for="rdbd-draw">
+                        {{localize "RDBD.Builder.drawCount"}}
+                        <span class="rdbd-info-badge" tabindex="0"
+                              data-tooltip="{{localize 'RDBD.Builder.drawCountHint'}}"
+                              aria-label="{{localize 'RDBD.Builder.drawCountHint'}}">
+                            <i class="fa-solid fa-circle-info"></i>
+                        </span>
+                    </label>
                     <input id="rdbd-draw" type="number" name="drawCount" value="{{state.drawCount}}"
                            min="1" step="1" {{disabled state.locked}}>
-                    <p class="rdbd-field-hint">{{localize "RDBD.Builder.drawCountHint"}}</p>
                 </div>
             {{/if}}
         </div>
@@ -72,6 +88,14 @@
                 <span class="rdbd-setup-digest">
                     <span class="rdbd-tag">
                         {{localize "RDBD.Builder.decks"}}: {{chosenDecks.length}}
+                    </span>
+                    {{!-- "Decks: 3" does not say which three, and the list it counts is folded
+                          away. deckDigest is pre-escaped HTML, hence the triple-stache — see
+                          EncounterBuilder#deckDigest. --}}
+                    <span class="rdbd-info-badge" tabindex="0"
+                          data-tooltip="{{{deckDigest}}}"
+                          aria-label="{{localize 'RDBD.Builder.chosenDecks'}}">
+                        <i class="fa-solid fa-circle-info"></i>
                     </span>
                     <span class="rdbd-tag rdbd-tag-cost {{#if overBudget}}rdbd-over-budget{{/if}}">
                         {{localize "RDBD.Summary.budgetLeft"}}: {{budget.budgetLeft}}
@@ -210,15 +234,16 @@
                 {{localize "RDBD.Builder.generate"}}
             </button>
 
-            {{!-- Free draw only: Generate replaces the roster, this one adds to it. --}}
-            {{#unless budgetMode}}
-                <button type="button" class="rdbd-generate rdbd-draw-another" data-action="drawOne"
-                        {{disabled state.locked}}
-                        data-tooltip="{{localize 'RDBD.Builder.drawAnotherHint'}}">
-                    <i class="fa-solid fa-plus"></i>
-                    {{localize "RDBD.Builder.drawAnother"}}
-                </button>
-            {{/unless}}
+            {{!-- Generate replaces the roster, this one adds to it. Offered in both modes since
+                  v1.2.0: "give me one more" is a thing a GM wants in a budgeted fight just as
+                  often, and it stays unbudgeted either way rather than quietly meaning two
+                  different things depending on the Mode dropdown. --}}
+            <button type="button" class="rdbd-generate rdbd-draw-another" data-action="drawOne"
+                    {{disabled state.locked}}
+                    data-tooltip="{{localize 'RDBD.Builder.drawAnotherHint'}}">
+                <i class="fa-solid fa-plus"></i>
+                {{localize "RDBD.Builder.drawAnother"}}
+            </button>
         </div>
     </section>
 

@@ -62,7 +62,7 @@ module/config/adversary-types.mjs  THE ONLY place a type's cost is resolved (sys
 module/config/settings.mjs    world settings + the one settings-tab menu
 module/data/decks.mjs         THE ONLY place that reads/writes the decks setting
 module/helpers/bp.mjs         THE ONLY place that produces a BP number; pure functions
-module/helpers/generator.mjs  draw / stack / draw-one / re-roll / put-back; card decoration
+module/helpers/generator.mjs  draw / stack / draw-one / re-roll / put-back / frozen cards; card decoration
 module/helpers/canvas-drop.mjs dropCanvasData hook for multi-token (minion group) drops
 module/apps/encounter-builder.mjs  the main window
 module/apps/deck-editor.mjs   deck CRUD + drag-in target
@@ -266,7 +266,49 @@ only shape a key can actually be *removed* from.
 
 **DialogV2 content is not inside `.rdbd-app`.** The module's palette is declared on `.rdbd-app,
 .rdbd-dialog` for that reason, and any dialog markup this module builds must wrap itself in
-`.rdbd-dialog` or every `--rdbd-*` in it resolves to nothing.
+`.rdbd-dialog` or every `--rdbd-*` in it resolves to nothing. `.rdbd-info-badge` is scoped to both
+roots for the same reason — it appears in the deck editor's edit dialog.
+
+**A frozen card is frozen against the pool, not just against the card list.** `state.lockedCards`
+holds card keys. Carrying those cards through a redraw is the easy half; the half that is easy to
+lose is that *every draw path must also remove their keys from the pool* — `generate`, `drawOne`
+and `rerollCard` all do. Without it a fresh Generate can roll the same adversary, `stack()` finds
+the existing card, and a card the GM froze at x2 silently becomes x3. "Nothing increases, decreases,
+changes or removes it" was the requirement, and *increases* is the clause a card-list-only
+implementation fails.
+
+Frozen cards are seeded into `fillBudget`/`drawFree` as the starting card list rather than being
+added afterwards, which is the whole of how they get costed: `affords()` prices the entire
+prospective roster on every candidate, so a frozen Bruiser spends its 4 BP and feeds the two
+composition-driven modifiers before the first card is drawn. In free draw, `drawCount` is a roster
+size and frozen units count toward it, for consistency with that.
+
+**Reset spares frozen cards. This is deliberate, and was the author's call.** It makes Reset mean
+"clear everything I have not deliberately kept", which is what turns freezing into a way to build a
+fight up across several generations. Do not "fix" it into a full wipe. The per-card padlock and
+`state.locked` (the *Accept* button) are unrelated mechanisms that happen to share the word "lock".
+
+**`lockedCards` is pruned on read**, in the `state` getter, alongside `deckIds` — a key whose card
+has left the roster is dropped. Otherwise the same adversary drawn again later would arrive
+mysteriously pre-frozen.
+
+**Re-roll and put-back both move exactly one unit; freeze moves the whole stack.** The asymmetry is
+intentional: freezing half of a x3 card would mean splitting it, and a partly-frozen card would need
+a second number on it to say how much. Re-roll's `replace()` keeps the remainder of the stack at its
+original index and splices the replacement in directly after, so re-rolling does not rearrange the
+grid under the pointer.
+
+**Field hints live in `data-tooltip` on an `.rdbd-info-badge`, not in a paragraph.**
+`.rdbd-field-hint` was removed in v1.2.0: two lines of explanatory text per field cost more height
+than the fields themselves. The badge is a `<span tabindex="0">` and not a `<button>` on purpose —
+it does nothing when clicked, and announcing an action that does not exist is worse than the
+tabindex it needs to stay keyboard-reachable.
+
+**`deckDigest` is pre-escaped HTML and the template emits it with a triple-stache.** Foundry's
+tooltip assigns `data-tooltip` through innerHTML, so a multi-line list needs real `<br>` elements;
+the deck names around them are GM-typed free text and are passed through `foundry.utils.escapeHTML`
+individually. Do not switch it to a double-stache (the `<br>`s become literal text) and do not drop
+the escaping.
 
 ## Foundry v14 gotchas encountered here
 
@@ -292,6 +334,11 @@ only shape a key can actually be *removed* from.
   hook still runs for singles so the card can be marked as spawned — a compendium card's UUID
   changes when core imports it, so matching a later `createToken` back to a card is not reliable;
   the drag data carries the card key instead (`DRAG_CARD_KEY`).
+- **Core styles every `button` with a fixed height** (`height: var(--button-size); min-height:
+  var(--button-size)` — 2rem). Any button of ours whose content can wrap to two lines must set
+  `height: auto` and re-establish a `min-height`, or the content overflows the box and collides
+  with whatever is beneath it. This is what clipped the deck rail's tag rows in v1.1.0; see
+  `.rdbd-app .rdbd-deck-name`.
 - `FormDataExtended` returns a `<select multiple>` as an **array**, and as an empty array when
   nothing is selected (`form-data-extended.mjs:205`). For the deck picker an empty array is a real
   value — deckless mode — so test with `Array.isArray()`, not truthiness; the field is absent

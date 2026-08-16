@@ -60,6 +60,9 @@ function blankState() {
         // Card keys already dragged onto the canvas, so the GM can see at a glance what is still
         // waiting to be placed. Cleared whenever the roster is redrawn.
         spawned: [],
+        // Card keys the GM has frozen. Distinct from `locked` below, which accepts the whole
+        // encounter: this is per-card and survives Generate, Re-roll All and Reset.
+        lockedCards: [],
         locked: false,
         generated: false
     };
@@ -110,6 +113,7 @@ export class EncounterBuilder extends HandlebarsApplicationMixin(ApplicationV2) 
             reset: EncounterBuilder.#onReset,
             rerollCard: EncounterBuilder.#onRerollCard,
             putBack: EncounterBuilder.#onPutBack,
+            toggleCardLock: EncounterBuilder.#onToggleCardLock,
             openCard: EncounterBuilder.#onOpenCard,
             addDeck: EncounterBuilder.#onAddDeck,
             removeDeck: EncounterBuilder.#onRemoveDeck,
@@ -170,6 +174,11 @@ export class EncounterBuilder extends HandlebarsApplicationMixin(ApplicationV2) 
         // multi-select got this for free, because it only ever submitted decks it had rendered.
         const decks = Decks.getDecks();
         state.deckIds = (state.deckIds ?? []).filter(id => decks.some(deck => deck.id === id));
+
+        // Same treatment for frozen cards: a key whose card has left the roster is pruned on read,
+        // so an adversary that comes back later does not arrive mysteriously pre-frozen.
+        const keys = new Set((state.cards ?? []).map(card => card.key));
+        state.lockedCards = (state.lockedCards ?? []).filter(key => keys.has(key));
         return state;
     }
 
@@ -281,6 +290,33 @@ export class EncounterBuilder extends HandlebarsApplicationMixin(ApplicationV2) 
         return rows;
     }
 
+    /**
+     * The decks currently being drawn from, as one tooltip string.
+     *
+     * Returned as HTML, because a tooltip listing five decks on five lines is readable and the same
+     * five run together on one line is not. Foundry's tooltip assigns `data-tooltip` through
+     * innerHTML, so the deck names — GM-typed, and therefore free-form — are escaped individually
+     * and only the separators are markup. The template emits this with a triple-stache.
+     *
+     * @param {object}   state    Encounter state.
+     * @param {object[]} deckRows Prepared deck rows.
+     * @returns {string} Escaped HTML.
+     */
+    #deckDigest(state, deckRows) {
+        const chosen = state.deckIds
+            .map(id => deckRows.find(deck => deck.id === id))
+            .filter(Boolean);
+
+        // No decks is deckless mode, not an empty list — say which it is.
+        if (!chosen.length) return foundry.utils.escapeHTML(
+            game.i18n.localize(`${NS}.Builder.decklessNote`)
+        );
+
+        return chosen
+            .map(deck => `${foundry.utils.escapeHTML(deck.name)} (${deck.count})`)
+            .join('<br>');
+    }
+
     /** @override */
     async _prepareContext() {
         const state = this.state;
@@ -330,6 +366,10 @@ export class EncounterBuilder extends HandlebarsApplicationMixin(ApplicationV2) 
                 .map(id => deckRows.find(deck => deck.id === id))
                 .filter(Boolean),
             hasChosen: deckRows.some(deck => deck.selected),
+            // Tooltip for the info badge on the collapsed setup bar. Folding the setup away hides
+            // the chosen-deck list, and "Decks: 3" does not answer "which three?" — this does,
+            // without unfolding. See #deckDigest for the escaping.
+            deckDigest: this.#deckDigest(state, deckRows),
 
             tiers: Array.from({ length: TIER_RANGE.max - TIER_RANGE.min + 1 }, (unused, i) => {
                 const value = TIER_RANGE.min + i;
@@ -428,8 +468,14 @@ export class EncounterBuilder extends HandlebarsApplicationMixin(ApplicationV2) 
         // encounter already on the table, and folding the panel out from under that would be rude.
         if (game.settings.get(MODULE_ID, SETTINGS.AUTO_COLLAPSE)) this.#setupCollapsed = true;
 
-        // A fresh roster has never been placed, so nothing is greyed out.
-        await this.#update({ cards, generated: true, spawned: [] });
+        // A fresh roster has never been placed, so nothing is greyed out — except the frozen cards,
+        // which are the same adversaries whose tokens are still standing on the canvas.
+        const frozen = state.lockedCards ?? [];
+        await this.#update({
+            cards,
+            generated: true,
+            spawned: (state.spawned ?? []).filter(key => frozen.includes(key))
+        });
     }
 
     static #onToggleSetup() {
@@ -474,9 +520,24 @@ export class EncounterBuilder extends HandlebarsApplicationMixin(ApplicationV2) 
         await this.#update({ locked: false });
     }
 
+    /**
+     * Clear the roster but keep the builder inputs, so "Reset" is not "start over".
+     *
+     * Frozen cards survive it, by the GM's own choice of behaviour: Reset then reads as "clear
+     * everything I have not deliberately kept", which makes freezing a way to build a fight up
+     * across several generations rather than only a shield against a stray click.
+     */
     static async #onReset() {
-        // Clears the roster but keeps the builder inputs, so "Reset" is not "start over".
-        await this.#update({ cards: [], generated: false, locked: false, spawned: [] });
+        const state = this.state;
+        const frozen = state.lockedCards ?? [];
+        const cards = (state.cards ?? []).filter(card => frozen.includes(card.key));
+        await this.#update({
+            cards,
+            // Only claim the encounter was generated while something is left to show for it.
+            generated: cards.length > 0,
+            locked: false,
+            spawned: (state.spawned ?? []).filter(key => frozen.includes(key))
+        });
     }
 
     static async #onRerollCard(event, target) {
@@ -484,21 +545,51 @@ export class EncounterBuilder extends HandlebarsApplicationMixin(ApplicationV2) 
         if (state.locked) return;
 
         const key = target.dataset.key;
+        if ((state.lockedCards ?? []).includes(key)) return;
+
         const cards = await rerollCard(state, key);
         if (!cards) return;
 
-        // The slot holds a different adversary now, so whatever was placed for the old one no
-        // longer describes this card. Dropping the key un-greys it.
+        // Only one unit leaves, so a stacked card that still has units on the table is still the
+        // adversary that was placed — its "already placed" mark stays. The mark is only dropped
+        // when the last unit is gone and the card with it.
+        const survives = cards.some(card => card.key === key);
         await this.#update({
             cards,
-            spawned: (state.spawned ?? []).filter(spawnedKey => spawnedKey !== key)
+            spawned: survives
+                ? (state.spawned ?? [])
+                : (state.spawned ?? []).filter(spawnedKey => spawnedKey !== key)
         });
     }
 
     static async #onPutBack(event, target) {
         const state = this.state;
         if (state.locked) return;
-        await this.#update({ cards: putBack(state.cards, target.dataset.key) });
+
+        const key = target.dataset.key;
+        if ((state.lockedCards ?? []).includes(key)) return;
+        await this.#update({ cards: putBack(state.cards, key) });
+    }
+
+    /**
+     * Freeze or unfreeze one card.
+     *
+     * Unlike its two neighbours this targets the whole stack, not a single unit: freezing half of a
+     * x3 card would mean splitting it, and a card that could be partly frozen would need a second
+     * number on it to say how much. The GM asked for "this adversary stays", so the card stays.
+     */
+    static async #onToggleCardLock(event, target) {
+        const state = this.state;
+        if (state.locked) return;
+
+        const key = target.dataset.key;
+        if (!key) return;
+        const frozen = state.lockedCards ?? [];
+        await this.#update({
+            lockedCards: frozen.includes(key)
+                ? frozen.filter(other => other !== key)
+                : [...frozen, key]
+        });
     }
 
     static async #onOpenCard(event, target) {

@@ -6,7 +6,7 @@
     data-token-count is the head count to spawn on a canvas drop — for a minion card that is
     groups x party size, not the number of BP-costing groups.
 --}}
-<div class="rdbd-card {{#if grouped}}rdbd-card-grouped{{/if}} {{#if spawned}}rdbd-card-spawned{{/if}}"
+<div class="rdbd-card {{#if grouped}}rdbd-card-grouped{{/if}} {{#if spawned}}rdbd-card-spawned{{/if}} {{#if locked}}rdbd-card-frozen{{/if}}"
      data-key="{{key}}"
      {{#if spawned}}data-tooltip="{{localize 'RDBD.Card.spawned'}}"{{/if}}
      {{#if uuid}}data-uuid="{{uuid}}" data-token-count="{{displayCount}}" draggable="true"{{/if}}>
@@ -53,15 +53,28 @@
     {{!-- @root because this partial renders inside {{#each cards}}. --}}
     {{#unless @root.state.locked}}
         <div class="rdbd-card-badges">
+            {{!-- Disabled rather than hidden while frozen: a card whose buttons vanish looks
+                  broken, and the row would reflow every time a lock was toggled. --}}
             <button type="button" class="rdbd-badge" data-action="rerollCard" data-key="{{key}}"
-                    data-tooltip="{{localize 'RDBD.Card.reroll'}}"
+                    {{disabled locked}}
+                    data-tooltip="{{#if locked}}{{localize 'RDBD.Card.frozenHint'}}{{else}}{{localize 'RDBD.Card.reroll'}}{{/if}}"
                     aria-label="{{localize 'RDBD.Card.reroll'}}">
                 <i class="fa-solid fa-dice-d20"></i>
             </button>
             <button type="button" class="rdbd-badge" data-action="putBack" data-key="{{key}}"
-                    data-tooltip="{{localize 'RDBD.Card.putBack'}}"
+                    {{disabled locked}}
+                    data-tooltip="{{#if locked}}{{localize 'RDBD.Card.frozenHint'}}{{else}}{{localize 'RDBD.Card.putBack'}}{{/if}}"
                     aria-label="{{localize 'RDBD.Card.putBack'}}">
                 <i class="fa-solid fa-rotate-left"></i>
+            </button>
+            {{!-- Targets the whole stack, unlike the two above. Last in the row so freezing a card
+                  never shifts the buttons the GM was already aiming at. --}}
+            <button type="button" class="rdbd-badge {{#if locked}}rdbd-badge-frozen{{/if}}"
+                    data-action="toggleCardLock" data-key="{{key}}"
+                    aria-pressed="{{#if locked}}true{{else}}false{{/if}}"
+                    data-tooltip="{{#if locked}}{{localize 'RDBD.Card.unfreeze'}}{{else}}{{localize 'RDBD.Card.freeze'}}{{/if}}"
+                    aria-label="{{#if locked}}{{localize 'RDBD.Card.unfreeze'}}{{else}}{{localize 'RDBD.Card.freeze'}}{{/if}}">
+                <i class="fa-solid {{#if locked}}fa-lock{{else}}fa-lock-open{{/if}}"></i>
             </button>
         </div>
     {{/unless}}

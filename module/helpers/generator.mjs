@@ -15,6 +15,18 @@
  *   }
  *
  * Cards are also valid `entries` for module/helpers/bp.mjs, which only reads type/tier/quantity.
+ *
+ * FROZEN CARDS
+ *
+ * `state.lockedCards` holds the keys the GM has frozen. A frozen card is immutable in the strongest
+ * sense the word allows here: it is not redrawn, not trimmed, not re-rolled, and — the part that is
+ * easy to miss — never *drawn into*. That last rule is why every draw path filters the pool by key
+ * rather than only leaving the card list alone: without it, a fresh Generate could roll the same
+ * adversary again, `stack` would find the frozen card and increment it, and a card the GM froze at
+ * x2 would quietly become x3.
+ *
+ * Frozen cards are carried into a new generation and their cost is counted against the budget, so
+ * the draw fills what is left around them rather than spending the budget twice.
  */
 
 import { GENERATION_MODE, MAX_DRAW_ITERATIONS, NS } from '../config/constants.mjs';
@@ -60,6 +72,27 @@ export async function buildPool(state) {
     if (!state.deckIds?.length) return rolePool(state.partyTier);
     const pool = await resolvePool(state.deckIds);
     return pool.filter(entry => !isIgnored(entry.type)).map(entry => ({ ...entry, key: entry.uuid }));
+}
+
+/**
+ * The keys the GM has frozen, as a Set for the filtering every draw path does.
+ *
+ * @param {object} state Encounter state.
+ * @returns {Set<string>}
+ */
+function lockedKeys(state) {
+    return new Set(state.lockedCards ?? []);
+}
+
+/**
+ * The frozen cards themselves, copied so a caller can build a new list on top of them.
+ *
+ * @param {object} state Encounter state.
+ * @returns {object[]}
+ */
+function frozenCards(state) {
+    const locked = lockedKeys(state);
+    return (state.cards ?? []).filter(card => locked.has(card.key)).map(card => ({ ...card }));
 }
 
 /**
@@ -129,11 +162,17 @@ function weightedPick(entries, cards, state) {
 /**
  * "Fill BP budget" mode — keep drawing while anything in the pool still fits.
  *
- * @param {object[]} pool  Pool entries.
+ * Starts from the frozen cards rather than from nothing, which is all it takes to make the budget
+ * account for them: `affords` costs the whole prospective roster every time, so a frozen Bruiser
+ * eats its 4 BP out of the budget before the first card is drawn, and its type feeds the two
+ * composition-driven modifiers exactly as a drawn one would.
+ *
+ * @param {object[]} pool  Pool entries, frozen keys already removed.
  * @param {object}   state Encounter state.
+ * @param {object[]} kept  Frozen cards to build on top of.
  * @returns {object[]} Cards.
  */
-function fillBudget(pool, state) {
+function fillBudget(pool, state, kept = []) {
     // A zero-cost entry can never use up any budget, so it would stay "affordable" until the
     // iteration cap and bury the roster under 200 copies of itself. That is exactly what an
     // unpriced homebrew type looks like, which is why budget mode leaves those out entirely —
@@ -141,10 +180,11 @@ function fillBudget(pool, state) {
     const costed = pool.filter(entry => unitCost(entry, state.partyTier) > 0);
     if (!costed.length) {
         ui.notifications?.warn(game.i18n.localize(`${NS}.Notification.nothingPriced`));
-        return [];
+        // The frozen cards are still the GM's encounter; an empty pool is no reason to drop them.
+        return kept;
     }
 
-    const cards = [];
+    const cards = [...kept];
     for (let i = 0; i < MAX_DRAW_ITERATIONS; i++) {
         const affordable = costed.filter(entry => affords(cards, entry, state));
         if (!affordable.length) break;
@@ -159,13 +199,19 @@ function fillBudget(pool, state) {
  * Deliberately unweighted and unbudgeted: this is the GM asking "give me four of these", and the
  * resulting Budget Left is allowed to go negative (the UI shows it in red, as the sheet does).
  *
- * @param {object[]} pool  Pool entries.
+ * Draw is a roster size, not a number of new faces, so frozen cards count toward it — the same
+ * reading as budget mode, where the frozen cards spend from the same budget rather than being
+ * granted one of their own. "Draw 4" with two frozen adversaries on the table draws two more.
+ *
+ * @param {object[]} pool  Pool entries, frozen keys already removed.
  * @param {object}   state Encounter state.
+ * @param {object[]} kept  Frozen cards to build on top of.
  * @returns {object[]} Cards.
  */
-function drawFree(pool, state) {
-    const cards = [];
-    const count = Math.max(0, Math.min(Number(state.drawCount) || 0, MAX_DRAW_ITERATIONS));
+function drawFree(pool, state, kept = []) {
+    const cards = [...kept];
+    const held = kept.reduce((sum, card) => sum + card.quantity, 0);
+    const count = Math.max(0, Math.min(Number(state.drawCount) || 0, MAX_DRAW_ITERATIONS) - held);
     for (let i = 0; i < count; i++) {
         stack(cards, pool[Math.floor(Math.random() * pool.length)]);
     }
@@ -200,21 +246,39 @@ function warnUnpriced(pool) {
  */
 export async function generate(state) {
     const pool = await buildPool(state);
+    const kept = frozenCards(state);
     if (!pool.length) {
         ui.notifications?.warn(game.i18n.localize(`${NS}.Notification.emptyPool`));
-        return [];
+        return kept;
     }
 
     warnUnpriced(pool);
-    return state.mode === GENERATION_MODE.FREE ? drawFree(pool, state) : fillBudget(pool, state);
+
+    // Frozen adversaries leave the pool: they are already on the table and must not be drawn a
+    // second time, because a second draw would stack onto them and increase a count the GM froze.
+    const locked = lockedKeys(state);
+    const drawable = pool.filter(entry => !locked.has(entry.key));
+    if (!drawable.length) {
+        ui.notifications?.info(game.i18n.localize(`${NS}.Notification.allFrozen`));
+        return kept;
+    }
+
+    return state.mode === GENERATION_MODE.FREE
+        ? drawFree(drawable, state, kept)
+        : fillBudget(drawable, state, kept);
 }
 
 /**
  * Draw one more adversary onto the encounter already on the table.
  *
- * The free-draw counterpart to Generate: Generate replaces the roster with a fresh draw of N,
- * this adds a single adversary and leaves everything else — including quantities the GM has
- * already trimmed by hand — exactly as it stands. Unweighted and unbudgeted, matching drawFree.
+ * The counterpart to Generate: Generate replaces the roster with a fresh draw, this adds a single
+ * adversary and leaves everything else — including quantities the GM has already trimmed by hand —
+ * exactly as it stands.
+ *
+ * Unweighted and unbudgeted in *both* modes. It is offered in budget mode too (v1.2.0), and it
+ * deliberately does not start respecting the budget there: one button doing two different things
+ * depending on a dropdown three fields away is worse than one button that always means "give me one
+ * more". Overshooting turns Budget Left red, which is the whole point of showing that number.
  *
  * @param {object} state Encounter state (cards included).
  * @returns {Promise<object[]|null>} New card list, or null when there was nothing to draw.
@@ -227,20 +291,34 @@ export async function drawOne(state) {
     }
 
     warnUnpriced(pool);
+
+    // Same rule as Generate: drawing a frozen adversary again would stack onto its card.
+    const locked = lockedKeys(state);
+    const drawable = pool.filter(entry => !locked.has(entry.key));
+    if (!drawable.length) {
+        ui.notifications?.info(game.i18n.localize(`${NS}.Notification.allFrozen`));
+        return null;
+    }
+
     const cards = (state.cards ?? []).map(card => ({ ...card }));
-    stack(cards, pool[Math.floor(Math.random() * pool.length)]);
+    stack(cards, drawable[Math.floor(Math.random() * drawable.length)]);
     return cards;
 }
 
 /**
- * Re-roll a single card, keeping the encounter's shape intact.
+ * Re-roll one unit of a card, keeping the encounter's shape intact.
  *
  * Swaps in a different adversary of the *same* type wherever possible, so the BP cost is
  * unchanged unless the replacement sits at a different tier. If the pool holds no other adversary
  * of that type, falls back to any replacement that keeps the encounter within budget.
  *
+ * ONE UNIT, not the whole stack (changed in v1.2.0). A x2 Bandits card re-rolled once leaves one
+ * Bandit on the table and turns the other into something else, mirroring "Put one back" next to it.
+ * Re-rolling the pair wholesale made a stacked card impossible to nudge: the only way to change
+ * half of it was to put one back and hope the next draw refilled the slot.
+ *
  * @param {object} state Encounter state (cards included).
- * @param {string} key   Card key to replace.
+ * @param {string} key   Card key to draw one unit away from.
  * @returns {Promise<object[]|null>} New card list, or null if no replacement was possible.
  */
 export async function rerollCard(state, key) {
@@ -252,11 +330,22 @@ export async function rerollCard(state, key) {
     const taken = new Set(state.cards.map(card => card.key));
     const currentTotal = adversaryTotal(state.cards, state.partyTier);
 
-    /** The card list that would result from swapping this slot for `entry`. */
+    /**
+     * The card list that would result from moving one unit of this slot onto `entry`.
+     *
+     * The remainder of the stack keeps its position, and the replacement is spliced in directly
+     * after it rather than appended, so a re-roll does not rearrange the grid under the pointer.
+     */
     const replace = entry => {
-        const next = state.cards.map(card =>
-            card.key === key ? { ...entry, quantity: current.quantity } : card
-        );
+        const next = [];
+        for (const card of state.cards) {
+            if (card.key !== key) {
+                next.push({ ...card });
+                continue;
+            }
+            if (card.quantity > 1) next.push({ ...card, quantity: card.quantity - 1 });
+            next.push({ ...entry, quantity: 1 });
+        }
         // The replacement may collide with a card already on the table; merge rather than duplicate.
         return next.reduce((acc, card) => {
             const existing = acc.find(other => other.key === card.key);
@@ -269,10 +358,9 @@ export async function rerollCard(state, key) {
     /**
      * A re-roll may never make the encounter worse than it already is.
      *
-     * The slot keeps its quantity, so a x2 card swapped for a pricier adversary multiplies the
-     * difference — checking a single unit is not enough. Accept a replacement if the result is
-     * within budget, or if it costs no more than the encounter already does. The second clause is
-     * what keeps re-roll usable in free-draw mode, where the roster is deliberately over budget.
+     * Accept a replacement if the result is within budget, or if it costs no more than the
+     * encounter already does. The second clause is what keeps re-roll usable in free-draw mode,
+     * where the roster is deliberately over budget.
      */
     const acceptable = entry => {
         const next = replace(entry);
@@ -280,7 +368,12 @@ export async function rerollCard(state, key) {
         return total <= spendable({ ...state, entries: next }) || total <= currentTotal;
     };
 
-    const candidates = pool.filter(entry => entry.key !== key && acceptable(entry));
+    // Frozen cards are excluded as replacements for the usual reason: merging into one would
+    // increase a count the GM froze.
+    const locked = lockedKeys(state);
+    const candidates = pool.filter(
+        entry => entry.key !== key && !locked.has(entry.key) && acceptable(entry)
+    );
 
     // Prefer another adversary of the same role, so the encounter keeps its shape.
     const sameType = candidates.filter(entry => entry.type === current.type);
@@ -326,6 +419,7 @@ export function putBack(cards, key) {
  * @returns {object[]} Cards with cost/display fields added.
  */
 export function decorateCards(cards, state) {
+    const locked = lockedKeys(state);
     return (cards ?? []).map(card => {
         const grouped = isGrouped(card.type);
         const displayCount = grouped ? card.quantity * state.pcCount : card.quantity;
@@ -333,6 +427,8 @@ export function decorateCards(cards, state) {
             ...card,
             grouped,
             displayCount,
+            // Drives the ribbon and disables this card's own re-roll and put-back buttons.
+            locked: locked.has(card.key),
             // Flags a type with no configured cost, which is charging 0 and should not be trusted.
             unpriced: !isPriced(card.type),
             typeLabel: typeLabel(card.type),

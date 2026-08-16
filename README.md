@@ -14,15 +14,19 @@ Foundry **v14**, Daggerheart system **2.7+**. GM-only.
   side by side and edits to an adversary are picked up automatically.
 - **Two generation modes** behind one button:
   - *Fill BP budget* — keeps drawing while the encounter stays within its Battle Points.
-  - *Free draw* — pulls a fixed number of adversaries and reports the damage afterwards. A
-    **Draw Another** button adds one more adversary without disturbing the encounter you already
-    have, so you can build a fight up a card at a time.
+  - *Free draw* — pulls a fixed number of adversaries and reports the damage afterwards.
+
+  **Draw Another** sits beside Generate in both modes. It adds one more adversary without
+  disturbing the encounter you already have, so you can build a fight up a card at a time. It
+  ignores the budget either way — overshooting simply turns *Budget Left* red.
 - **Full Battle Points readout** — baseline, adversary spend, modifiers and budget left, and
   underneath, every modifier that is actually contributing something, with its value. The modifier
   dropdowns themselves stay clean ("High", not "High (+1)") because the arithmetic lives here.
 - **Deckless mode** — with no deck selected, the encounter is generated as a list of adversary
   *categories* rather than actors, for when you want the shape of a fight without the roster.
-- **Per-card re-roll and put-back**, plus **Accept / Re-roll / Reset** for the encounter as a whole.
+- **Per-card re-roll, put-back and freeze**, plus **Accept / Re-roll / Reset** for the encounter as
+  a whole. Re-roll and put-back each act on one adversary of a stacked card; freeze pins a card so
+  that Generate, Re-roll and Reset all leave it exactly as it is.
 - **Drag to canvas** — spawns tokens, importing compendium adversaries into the world
   automatically. A minion card places the whole group in one drag. A card that has been placed is
   greyed out and pinned, so a long fight is easy to work through; re-rolling or resetting clears
@@ -57,10 +61,32 @@ https://raw.githubusercontent.com/el-remito/remito-daggerheart-battle-decks/main
    modifiers and hit **Generate**. Leave *Target BP* blank to use the budget shown in the field —
    the baseline plus your modifiers.
 4. Generating folds the setup away so the roster has the window to itself; the arrow beside
-   *Encounter Setup* brings it back. Click a card to open its sheet; drag it onto the canvas to
-   place tokens. Placed cards grey out.
-5. **Accept** locks the roster so it cannot drift; the cards stay draggable and the encounter is
+   *Encounter Setup* brings it back, and the ⓘ on the folded bar lists the decks you are drawing
+   from. Click a card to open its sheet; drag it onto the canvas to place tokens. Placed cards
+   grey out.
+5. Tune the roster card by card: **re-roll one**, **put one back**, or **freeze** — see
+   *Freezing an adversary* below.
+6. **Accept** locks the roster so it cannot drift; the cards stay draggable and the encounter is
    restored the next time you open the window.
+
+## Freezing an adversary
+
+The padlock on a card pins it. A frozen card survives **Generate**, **Re-roll All** and **Reset**
+untouched — same adversary, same count — and its own re-roll and put-back buttons switch off, so
+nothing on the window can change it until you unlock it. It wears a blue ribbon while frozen.
+
+Frozen adversaries are part of the encounter, not an exception to it. Their Battle Points come out
+of the same budget, so Generate fills what is *left* around them rather than spending the budget
+twice; in *Free draw*, *Draw* is the size of the whole roster, so freezing two and drawing four
+draws two more. They are also taken out of the draw pool while frozen — otherwise a fresh Generate
+could roll the same adversary again and quietly push a frozen ×2 up to ×3.
+
+Because Reset spares them, freezing is also how you build a fight up deliberately: pin the boss,
+Reset, and generate a new set of minions around it as many times as you like.
+
+Note that the per-card padlock and the **Accept** button are different things. Accept freezes the
+*whole* encounter and is undone with *Unlock*; the padlock freezes one card while the rest of the
+roster stays live.
 
 ## Organising decks
 
@@ -175,6 +201,27 @@ game.modules.get("remito-daggerheart-battle-decks").api.selfTest()
 ```
 
 ## Changelog
+
+### 1.2.0
+
+- **Freeze an adversary.** A padlock on each card pins it: Generate, Re-roll All and Reset all
+  leave it alone, its own re-roll and put-back switch off, and a blue ribbon says so. Frozen
+  adversaries still spend from the encounter's budget, so a new draw fills the room left around
+  them, and they leave the draw pool while frozen so a redraw cannot stack onto them. Because
+  Reset spares them, freezing doubles as a way to build a fight up across several generations.
+- **Re-roll one, not all.** Re-rolling a stacked card used to replace the whole stack. It now
+  moves a single adversary, mirroring *Put one back* beside it — re-roll a ×2 Bandits card and one
+  Bandit stays put.
+- **Draw Another in both modes.** It was previously offered only in *Free draw*. It stays
+  deliberately unbudgeted in both, rather than meaning two different things depending on the Mode
+  dropdown.
+- **Field hints became ⓘ badges.** The explanatory paragraphs under *Target BP* and *Draw* now
+  hang off their labels as hover text, which gives the room back to the window that needs it.
+- **The folded setup bar names its decks.** "Decks: 3" did not say which three, and the list it
+  counts is the thing that got folded away; the ⓘ beside it lists them with their counts.
+- **Fixed:** deck names in the editor were clipping into their tags. Foundry styles every button
+  with a fixed 2rem height, which went unnoticed while a row was a single line and started
+  overflowing the moment v1.1.0 put tags underneath the name.
 
 ### 1.1.0
 

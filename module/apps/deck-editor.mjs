@@ -360,9 +360,15 @@ export class DeckEditor extends HandlebarsApplicationMixin(ApplicationV2) {
                         <input id="rdbd-edit-name" type="text" name="name" value="${escape(entry.name)}" autofocus>
                     </div>
                     <div class="rdbd-field">
-                        <label for="rdbd-edit-tags">${game.i18n.localize(`${NS}.DeckEditor.tags`)}</label>
+                        <label for="rdbd-edit-tags">
+                            ${game.i18n.localize(`${NS}.DeckEditor.tags`)}
+                            <span class="rdbd-info-badge" tabindex="0"
+                                  data-tooltip="${escape(game.i18n.localize(`${NS}.DeckEditor.tagsHint`))}"
+                                  aria-label="${escape(game.i18n.localize(`${NS}.DeckEditor.tagsHint`))}">
+                                <i class="fa-solid fa-circle-info"></i>
+                            </span>
+                        </label>
                         <input id="rdbd-edit-tags" type="text" name="tags" value="${escape(entry.tags.join(', '))}">
-                        <p class="rdbd-field-hint">${game.i18n.localize(`${NS}.DeckEditor.tagsHint`)}</p>
                     </div>
                 </div>`,
             ok: {
